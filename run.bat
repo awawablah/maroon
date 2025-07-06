@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-echo [INFO] Compiling TypeScript...
+echo [INFO] 🛠️ Compiling TypeScript...
 call npx tsc
 
 if %errorlevel% neq 0 (
@@ -9,7 +9,7 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-echo [INFO] Starting the bot...
+echo [INFO] 🚀 Launching bot...
 node --trace-warnings dist/bot.js
 
 endlocal
