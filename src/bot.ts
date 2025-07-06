@@ -2,6 +2,7 @@ import { Client, GatewayIntentBits, Partials } from "discord.js";
 import { config } from "./config";
 import interactionCreate from "./listeners/interactionCreate";
 import ready from "./listeners/ready";
+import messageCreate from "./listeners/messageCreate";
 import fs from "fs";
 
 const client = new Client({
@@ -28,5 +29,6 @@ if (!fs.existsSync("userWwydPrompts.json"))
 
 ready(client);
 interactionCreate(client);
+messageCreate(client);
 
 client.login(config.DISCORD_TOKEN);

@@ -1,0 +1,24 @@
+{
+  "ignoredChannels": ["1234567890123456789", "9876543210987654321"],
+  "wwydSettings": {
+    "enabled": true,
+    "responseChance": 0.8,
+    "cooldownSeconds": 3,
+    "maxResponseLength": 200,
+    "fallbackThemes": ["random", "funny", "brainrot"],
+    "emojiChance": 0.6,
+    "multiEmojiChance": 0.3,
+    "triggers": [
+      "wwyd",
+      "what would you do",
+      "what would u do",
+      "what would ya do",
+      "what would yall do",
+      "what y'all would do",
+      "what do you do",
+      "what do u do",
+      "what u do",
+      "what ya do"
+    ]
+  }
+}
