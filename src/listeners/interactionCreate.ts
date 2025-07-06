@@ -15,11 +15,29 @@ const handleSlashCommand = async (
 ): Promise<void> => {
   const slashCommand = Commands.find((c) => c.name === interaction.commandName);
   if (!slashCommand) {
-    interaction.followUp({ content: "An error has occurred" });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: "❌ This command doesn't exist.",
+        ephemeral: true,
+      });
+    }
     return;
   }
 
-  await interaction.deferReply();
-
-  slashCommand.run(client, interaction);
+  try {
+    await slashCommand.run(client, interaction);
+  } catch (err) {
+    console.error(err);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        ephemeral: true,
+        content: "❌ An error occurred while executing this command.",
+      });
+    } else {
+      await interaction.followUp({
+        ephemeral: true,
+        content: "❌ An error occurred after the reply.",
+      });
+    }
+  }
 };

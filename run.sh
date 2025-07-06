@@ -6,4 +6,4 @@ echo "🛠️ Compiling TypeScript..."
 npx tsc
 
 echo "🚀 Launching bot..."
-node dist/bot.js
+node --trace-warnings dist/bot.js

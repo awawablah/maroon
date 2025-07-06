@@ -10,6 +10,6 @@ if %errorlevel% neq 0 (
 )
 
 echo [INFO] Starting the bot...
-node dist\bot.js
+node --trace-warnings dist/bot.js
 
 endlocal
