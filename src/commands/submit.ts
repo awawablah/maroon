@@ -497,7 +497,7 @@ export const Submit: Command = {
           if (!i.memberPermissions?.has("Administrator")) {
             await i.reply({
               content: "❌ You don't have permission to review submissions.",
-              ephemeral: true,
+              flags: MessageFlags.Ephemeral,
             });
             return;
           }

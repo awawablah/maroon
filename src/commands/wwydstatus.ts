@@ -1,8 +1,14 @@
-import { ChatInputCommandInteraction, Client, EmbedBuilder, MessageFlags } from "discord.js";
+import {
+  ChatInputCommandInteraction,
+  Client,
+  EmbedBuilder,
+  MessageFlags,
+} from "discord.js";
 import { Command } from "../Command";
 import * as fs from "fs";
 import * as path from "path";
 import config from "../config.json";
+import { THEME_KEYWORDS } from "../handlers/wwydHandler";
 
 interface SubmissionData {
   index: number;
@@ -38,9 +44,9 @@ export const WwydStatus: Command = {
 
       // Count submissions by theme
       const themeCount: Record<string, number> = {};
-      submissions.forEach(submission => {
+      submissions.forEach((submission) => {
         if (submission.themes && submission.themes.length > 0) {
-          submission.themes.forEach(theme => {
+          submission.themes.forEach((theme) => {
             themeCount[theme] = (themeCount[theme] || 0) + 1;
           });
         }
@@ -92,18 +98,27 @@ export const WwydStatus: Command = {
       // Trigger words
       embed.addFields({
         name: "🔍 Trigger Words",
-        value: config.wwydSettings.triggers.map(trigger => `\`${trigger}\``).join(", "),
+        value: config.wwydSettings.triggers
+          .map((trigger) => `\`${trigger}\``)
+          .join(", "),
         inline: false,
       });
 
       // Recent submissions (last 5)
       if (submissions.length > 0) {
         const recentSubmissions = submissions
-          .sort((a, b) => new Date(b.approvedAt).getTime() - new Date(a.approvedAt).getTime())
+          .sort(
+            (a, b) =>
+              new Date(b.approvedAt).getTime() -
+              new Date(a.approvedAt).getTime(),
+          )
           .slice(0, 5);
 
         const recentList = recentSubmissions
-          .map(sub => `**#${sub.index}** by ${sub.username} (${sub.themes?.join(", ") || "no themes"})`)
+          .map(
+            (sub) =>
+              `**#${sub.index}** by ${sub.username} (${sub.themes?.join(", ") || "no themes"})`,
+          )
           .join("\n");
 
         embed.addFields({
@@ -117,7 +132,6 @@ export const WwydStatus: Command = {
         embeds: [embed],
         flags: MessageFlags.Ephemeral,
       });
-
     } catch (error) {
       console.error("Error in wwydstatus command:", error);
       await interaction.reply({
@@ -146,16 +160,16 @@ export const WwydReset: Command = {
       // or provide information about how to reset
 
       await interaction.reply({
-        content: "🔄 **WWYD Reset Information:**\n\n" +
-                "To fully reset WWYD cooldowns, restart the bot.\n\n" +
-                "**Current Settings:**\n" +
-                `• User Cooldown: ${config.wwydSettings.cooldownSeconds}s\n` +
-                `• Global Cooldown: 5s\n` +
-                `• Response Chance: ${(config.wwydSettings.responseChance * 100).toFixed(1)}%\n` +
-                `• System Enabled: ${config.wwydSettings.enabled ? "✅ Yes" : "❌ No"}`,
+        content:
+          "🔄 **WWYD Reset Information:**\n\n" +
+          "To fully reset WWYD cooldowns, restart the bot.\n\n" +
+          "**Current Settings:**\n" +
+          `• User Cooldown: ${config.wwydSettings.cooldownSeconds}s\n` +
+          `• Global Cooldown: 5s\n` +
+          `• Response Chance: ${(config.wwydSettings.responseChance * 100).toFixed(1)}%\n` +
+          `• System Enabled: ${config.wwydSettings.enabled ? "✅ Yes" : "❌ No"}`,
         flags: MessageFlags.Ephemeral,
       });
-
     } catch (error) {
       console.error("Error in wwydreset command:", error);
       await interaction.reply({
@@ -180,21 +194,6 @@ export const WwydTest: Command = {
   run: async (client: Client, interaction: ChatInputCommandInteraction) => {
     const testMessage = interaction.options.getString("message", true);
 
-    // Import the theme detection function (we'll need to export it from wwydHandler)
-    // For now, we'll do a simple version here
-    const THEME_KEYWORDS = {
-      sigma: ["sigma", "alpha", "beta", "grindset", "gigachad", "chad", "based", "cringe", "ohio", "W", "L", "ratio", "mog"],
-      brainrot: ["skibidi", "toilet", "gyatt", "gyat", "rizz", "rizzler", "fanum", "tax", "sus", "sussy", "copium", "hopium", "cope"],
-      tiktok: ["tiktok", "fyp", "for you page", "viral", "trending", "algorithm", "reels", "stories", "influencer", "tiktoker"],
-      school: ["school", "teacher", "homework", "class", "exam", "test", "grade", "student", "cafeteria", "locker", "hallway", "principal"],
-      friendship: ["friend", "friendship", "bestie", "squad", "hang out", "sleepover", "group chat", "drama", "gossip", "tea", "spill", "beef"],
-      family: ["mom", "dad", "parent", "sibling", "brother", "sister", "family", "home", "chores", "allowance", "grounded", "punishment"],
-      romance: ["crush", "like", "dating", "boyfriend", "girlfriend", "valentine", "prom", "dance", "cute", "love", "relationship", "kiss", "hug"],
-      gaming: ["game", "gaming", "console", "pc", "stream", "minecraft", "fortnite", "roblox", "discord", "valorant", "league of legends"],
-      concerning: ["kms", "kill myself", "suicide", "self harm", "cutting", "hurt myself", "end it all", "want to die", "depression", "anxiety"],
-      random: ["random", "weird", "strange", "chaos", "wild", "unexpected", "what", "why", "how", "confused", "help", "idk"],
-    };
-
     function detectThemes(text: string): string[] {
       const lowerText = text.toLowerCase();
       const detectedThemes: string[] = [];
@@ -212,8 +211,8 @@ export const WwydTest: Command = {
       const detectedThemes = detectThemes(testMessage);
 
       // Check if it would trigger WWYD
-      const wouldTrigger = config.wwydSettings.triggers.some(trigger =>
-        testMessage.toLowerCase().includes(trigger.toLowerCase())
+      const wouldTrigger = config.wwydSettings.triggers.some((trigger) =>
+        testMessage.toLowerCase().includes(trigger.toLowerCase()),
       );
 
       const embed = new EmbedBuilder()
@@ -229,7 +228,7 @@ export const WwydTest: Command = {
 
       embed.addFields({
         name: "🎯 Detected Themes",
-        value: detectedThemes.map(theme => `\`${theme}\``).join(", "),
+        value: detectedThemes.map((theme) => `\`${theme}\``).join(", "),
         inline: false,
       });
 
@@ -249,7 +248,6 @@ export const WwydTest: Command = {
         embeds: [embed],
         flags: MessageFlags.Ephemeral,
       });
-
     } catch (error) {
       console.error("Error in wwydtest command:", error);
       await interaction.reply({

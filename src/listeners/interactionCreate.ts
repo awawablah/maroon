@@ -1,4 +1,9 @@
-import { ChatInputCommandInteraction, Client, Interaction } from "discord.js";
+import {
+  ChatInputCommandInteraction,
+  Client,
+  Interaction,
+  MessageFlags,
+} from "discord.js";
 import { Commands } from "../Commands";
 
 export default (client: Client): void => {
@@ -16,10 +21,12 @@ const handleSlashCommand = async (
   const slashCommand = Commands.find((c) => c.name === interaction.commandName);
   if (!slashCommand) {
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: "❌ This command doesn't exist.",
-        ephemeral: true,
-      });
+      await interaction
+        .reply({
+          content: "❌ This command doesn't exist.",
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch((err) => console.error("Reply failure:", err));
     }
     return;
   }
@@ -29,15 +36,19 @@ const handleSlashCommand = async (
   } catch (err) {
     console.error(err);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        ephemeral: true,
-        content: "❌ An error occurred while executing this command.",
-      });
+      await interaction
+        .reply({
+          flags: MessageFlags.Ephemeral,
+          content: "❌ An error occurred while executing this command.",
+        })
+        .catch((err) => console.error("Reply failure:", err));
     } else {
-      await interaction.followUp({
-        ephemeral: true,
-        content: "❌ An error occurred after the reply.",
-      });
+      await interaction
+        .followUp({
+          flags: MessageFlags.Ephemeral,
+          content: "❌ An error occurred after the reply.",
+        })
+        .catch((err) => console.error("FollowUp failure:", err));
     }
   }
 };
