@@ -9,12 +9,16 @@ import {
   ButtonStyle,
   ButtonInteraction,
   EmbedBuilder,
+  Guild,
+  GuildMember,
 } from "discord.js";
 import { Command } from "../Command";
 import * as fs from "fs";
 import * as path from "path";
+import { config } from "../config";
 
 const ADMIN_CHANNEL_ID = "1391277749695549583";
+const APPROVED_ROLE_ID = config.approvedSubmissionRoleId;
 
 // Theme keywords for tagging (TikTok/brainrot humor)
 const THEME_KEYWORDS = {
@@ -520,6 +524,46 @@ export const Submit: Command = {
 
             saveToDatabase(dbData);
 
+            // Add role to user if they're in the guild
+            try {
+              const guild = i.guild as Guild;
+              console.log(`🔍 Role assignment debug:`);
+              console.log(`   Guild: ${guild ? guild.name : "null"}`);
+              console.log(`   Role ID: ${APPROVED_ROLE_ID}`);
+              console.log(`   User ID: ${interaction.user.id}`);
+
+              if (
+                guild &&
+                APPROVED_ROLE_ID &&
+                APPROVED_ROLE_ID !== "YOUR_ROLE_ID_HERE"
+              ) {
+                const member = await guild.members.fetch(interaction.user.id);
+                if (member) {
+                  const role = guild.roles.cache.get(APPROVED_ROLE_ID);
+                  if (role) {
+                    await member.roles.add(APPROVED_ROLE_ID);
+                    console.log(
+                      `✅ Added approved role "${role.name}" to ${interaction.user.tag}`,
+                    );
+                  } else {
+                    console.error(
+                      `❌ Role with ID ${APPROVED_ROLE_ID} not found in guild`,
+                    );
+                  }
+                } else {
+                  console.error(
+                    `❌ Member ${interaction.user.tag} not found in guild`,
+                  );
+                }
+              } else {
+                console.log(
+                  `⚠️ Role assignment skipped: Guild=${!!guild}, RoleID=${APPROVED_ROLE_ID}, Valid=${APPROVED_ROLE_ID !== "YOUR_ROLE_ID_HERE"}`,
+                );
+              }
+            } catch (error) {
+              console.error("❌ Error adding role to user:", error);
+            }
+
             await i.update({
               content: `✅ **APPROVED** by <@${i.user.id}>\n\n📨 **Submission #${nextIndex} from <@${interaction.user.id}>:**\n\`\`\`${submission}\`\`\`\n🏷️ **Themes:** ${themes.join(", ")}`,
               components: [],
@@ -589,9 +633,16 @@ export const FindApproved: Command = {
       description: "Username to search for (leave empty to show all)",
       required: false,
     },
+    {
+      name: "page",
+      type: 4, // INTEGER
+      description: "Page number (shows 5 submissions per page)",
+      required: false,
+    },
   ],
   run: async (client: Client, interaction: ChatInputCommandInteraction) => {
     const username = interaction.options.getString("username");
+    const page = interaction.options.getInteger("page") || 1;
     const filePath = path.join(process.cwd(), "approved_submissions.json");
 
     try {
@@ -640,15 +691,30 @@ export const FindApproved: Command = {
       // Sort by index
       filteredSubmissions.sort((a, b) => a.index - b.index);
 
+      // Pagination
+      const itemsPerPage = 5;
+      const totalPages = Math.ceil(filteredSubmissions.length / itemsPerPage);
+      const startIndex = (page - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const pageSubmissions = filteredSubmissions.slice(startIndex, endIndex);
+
+      if (pageSubmissions.length === 0) {
+        await interaction.reply({
+          content: `❌ Page ${page} is empty. There are only ${totalPages} pages.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
       const embed = new EmbedBuilder()
-        .setTitle(titleText)
+        .setTitle(`${titleText} (Page ${page}/${totalPages})`)
         .setColor(0x00ff00)
         .setTimestamp()
         .setFooter({
           text: `Total submissions: ${filteredSubmissions.length}`,
         });
 
-      filteredSubmissions.forEach((submission, i) => {
+      pageSubmissions.forEach((submission, i) => {
         const themes = submission.themes?.join(", ") || "none";
         const content =
           submission.submission.length > 100
@@ -740,7 +806,7 @@ export const ListSubmissions: Command = {
     {
       name: "page",
       type: 4, // INTEGER
-      description: "Page number (shows 10 submissions per page)",
+      description: "Page number (shows 5 submissions per page)",
       required: false,
     },
   ],
@@ -771,7 +837,7 @@ export const ListSubmissions: Command = {
       // Sort by index
       submissions.sort((a, b) => a.index - b.index);
 
-      const itemsPerPage = 10;
+      const itemsPerPage = 5;
       const totalPages = Math.ceil(submissions.length / itemsPerPage);
       const startIndex = (page - 1) * itemsPerPage;
       const endIndex = startIndex + itemsPerPage;
