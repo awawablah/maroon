@@ -60,6 +60,7 @@
     "submission": "pp"
   },
   {
+<<<<<<< HEAD
     "timestamp": "2025-07-07T19:07:04.401Z",
     "userId": "1156278805221085204",
     "username": "wearethefavors",
@@ -202,5 +203,11 @@
     "userId": "1140844731555909773",
     "username": "anika.luv",
     "submission": "test"
+=======
+    "timestamp": "2025-07-06T18:24:54.586Z",
+    "userId": "917242325216940102",
+    "username": "awawablah",
+    "submission": "KILL yourself!!"
+>>>>>>> a1da63bf2523b19cd40a4924fd20fca9bacd1b42
   }
 ]

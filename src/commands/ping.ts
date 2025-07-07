@@ -1,11 +1,11 @@
 import { CommandInteraction, Client, MessageFlags } from "discord.js";
 import { Command } from "../Command";
 
-export const Hello: Command = {
-  name: "hello",
-  description: "Returns a greeting",
+export const Ping: Command = {
+  name: "ping",
+  description: "Sanity check",
   run: async (client: Client, interaction: CommandInteraction) => {
-    const content = "Hello there!";
+    let content = `Latency is ${Date.now() - interaction.createdTimestamp}ms. API Latency is ${Math.round(client.ws.ping)}ms`;
 
     await interaction.reply({
       flags: MessageFlags.Ephemeral,

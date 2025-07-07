@@ -16,7 +16,7 @@ interface SubmissionData {
 }
 
 // Theme keywords for detecting themes in user messages
-const THEME_KEYWORDS = {
+export const THEME_KEYWORDS = {
   sigma: [
     "sigma",
     "alpha",
@@ -413,7 +413,6 @@ function setCooldown(userId: string): void {
   userCooldowns.set(userId, now);
   lastGlobalResponse = now;
   console.log(`✅ Cooldown set for user ${userId}`);
-  
 }
 
 export async function handleWwydMessage(
