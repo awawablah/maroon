@@ -458,8 +458,6 @@ export const Submit: Command = {
       // Forward to admin channel with approval buttons
       const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID);
       if (adminChannel && adminChannel.isTextBased()) {
-        const nextIndex = getNextIndex();
-
         const approveButton = new ButtonBuilder()
           .setCustomId(`approve_${interaction.user.id}_${Date.now()}`)
           .setLabel("✅ Approve")
@@ -482,7 +480,7 @@ export const Submit: Command = {
             : "";
 
         const message = await (adminChannel as TextChannel).send({
-          content: `📨 **New submission from <@${interaction.user.id}> (Will be index #${nextIndex}):**\n\`\`\`${submission}\`\`\`${themeText}`,
+          content: `📨 **New submission from <@${interaction.user.id}>:**\n\`\`\`${submission}\`\`\`${themeText}`,
           components: [row],
         });
 
@@ -509,6 +507,7 @@ export const Submit: Command = {
           const isApproved = i.customId.startsWith("approve_");
 
           if (isApproved) {
+            const nextIndex = getNextIndex();
             // Save to database with theme tags and index
             const dbData: SubmissionData = {
               index: nextIndex,
