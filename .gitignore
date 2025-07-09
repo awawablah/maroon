@@ -1,6 +1,9 @@
 # Node modules
 node_modules/
 
+approved_submissions.json
+userWwydPrompts.json
+
 # Build output
 dist/
 build/
