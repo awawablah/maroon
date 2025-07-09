@@ -11,6 +11,7 @@ import {
   EmbedBuilder,
   Guild,
   GuildMember,
+  ComponentType,
 } from "discord.js";
 import { Command } from "../Command";
 import * as fs from "fs";
@@ -705,32 +706,116 @@ export const FindApproved: Command = {
         return;
       }
 
-      const embed = new EmbedBuilder()
-        .setTitle(`${titleText} (Page ${page}/${totalPages})`)
-        .setColor(0x00ff00)
-        .setTimestamp()
-        .setFooter({
-          text: `Total submissions: ${filteredSubmissions.length}`,
+      let currentPage = page;
+
+      const generateEmbed = (pageNum: number) => {
+        const startIndex = (pageNum - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const pageSubmissions = filteredSubmissions.slice(startIndex, endIndex);
+
+        const embed = new EmbedBuilder()
+          .setTitle(`${titleText} (Page ${pageNum}/${totalPages})`)
+          .setColor(0x00ff00)
+          .setTimestamp()
+          .setFooter({
+            text: `Total submissions: ${filteredSubmissions.length}`,
+          });
+
+        pageSubmissions.forEach((submission, i) => {
+          const themes = submission.themes?.join(", ") || "none";
+          const content =
+            submission.submission.length > 100
+              ? submission.submission.substring(0, 100) + "..."
+              : submission.submission;
+
+          embed.addFields({
+            name: `#${submission.index} - ${submission.username}`,
+            value: `**Content:** ${content}\n**Themes:** ${themes}\n**Approved:** <t:${Math.floor(new Date(submission.approvedAt).getTime() / 1000)}:R>`,
+            inline: false,
+          });
         });
 
-      pageSubmissions.forEach((submission, i) => {
-        const themes = submission.themes?.join(", ") || "none";
-        const content =
-          submission.submission.length > 100
-            ? submission.submission.substring(0, 100) + "..."
-            : submission.submission;
+        return embed;
+      };
 
-        embed.addFields({
-          name: `#${submission.index} - ${submission.username}`,
-          value: `**Content:** ${content}\n**Themes:** ${themes}\n**Approved:** <t:${Math.floor(new Date(submission.approvedAt).getTime() / 1000)}:R>`,
-          inline: false,
-        });
-      });
+      const generateButtons = (pageNum: number) => {
+        const row = new ActionRowBuilder<ButtonBuilder>();
 
-      await interaction.reply({
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId("approved_prev")
+            .setLabel("◀️")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(pageNum === 1),
+
+          new ButtonBuilder()
+            .setCustomId("approved_next")
+            .setLabel("▶️")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(pageNum === totalPages),
+        );
+
+        return row;
+      };
+
+      const embed = generateEmbed(currentPage);
+      const buttons = generateButtons(currentPage);
+
+      const response = await interaction.reply({
         embeds: [embed],
+        components: totalPages > 1 ? [buttons] : [],
         flags: MessageFlags.Ephemeral,
       });
+
+      if (totalPages > 1) {
+        const collector = response.createMessageComponentCollector({
+          componentType: ComponentType.Button,
+          time: 300000, // 5 minutes
+        });
+
+        collector.on(
+          "collect",
+          async (buttonInteraction: ButtonInteraction) => {
+            if (buttonInteraction.user.id !== interaction.user.id) {
+              await buttonInteraction.reply({
+                content: "❌ You can't use these buttons.",
+                flags: MessageFlags.Ephemeral,
+              });
+              return;
+            }
+
+            if (
+              buttonInteraction.customId === "approved_prev" &&
+              currentPage > 1
+            ) {
+              currentPage--;
+            } else if (
+              buttonInteraction.customId === "approved_next" &&
+              currentPage < totalPages
+            ) {
+              currentPage++;
+            }
+
+            const newEmbed = generateEmbed(currentPage);
+            const newButtons = generateButtons(currentPage);
+
+            await buttonInteraction.update({
+              embeds: [newEmbed],
+              components: [newButtons],
+            });
+          },
+        );
+
+        collector.on("end", async () => {
+          try {
+            await response.edit({
+              components: [],
+            });
+          } catch (error) {
+            console.error("Error removing buttons:", error);
+          }
+        });
+      }
     } catch (error) {
       console.error("❌ Error finding submissions:", error);
       await interaction.reply({
@@ -850,32 +935,113 @@ export const ListSubmissions: Command = {
         return;
       }
 
-      const embed = new EmbedBuilder()
-        .setTitle(`📋 Approved Submissions (Page ${page}/${totalPages})`)
-        .setColor(0x00ff00)
-        .setTimestamp()
-        .setFooter({
-          text: `Total submissions: ${submissions.length}`,
+      let currentPage = page;
+
+      const generateEmbed = (pageNum: number) => {
+        const startIndex = (pageNum - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const pageSubmissions = submissions.slice(startIndex, endIndex);
+
+        const embed = new EmbedBuilder()
+          .setTitle(`📋 Approved Submissions (Page ${pageNum}/${totalPages})`)
+          .setColor(0x00ff00)
+          .setTimestamp()
+          .setFooter({
+            text: `Total submissions: ${submissions.length}`,
+          });
+
+        pageSubmissions.forEach((submission) => {
+          const themes = submission.themes?.join(", ") || "none";
+          const content =
+            submission.submission.length > 100
+              ? submission.submission.substring(0, 100) + "..."
+              : submission.submission;
+
+          embed.addFields({
+            name: `#${submission.index} - ${submission.username}`,
+            value: `**Content:** ${content}\n**Themes:** ${themes}`,
+            inline: false,
+          });
         });
 
-      pageSubmissions.forEach((submission) => {
-        const themes = submission.themes?.join(", ") || "none";
-        const content =
-          submission.submission.length > 100
-            ? submission.submission.substring(0, 100) + "..."
-            : submission.submission;
+        return embed;
+      };
 
-        embed.addFields({
-          name: `#${submission.index} - ${submission.username}`,
-          value: `**Content:** ${content}\n**Themes:** ${themes}`,
-          inline: false,
-        });
-      });
+      const generateButtons = (pageNum: number) => {
+        const row = new ActionRowBuilder<ButtonBuilder>();
 
-      await interaction.reply({
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId("list_prev")
+            .setLabel("◀️")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(pageNum === 1),
+
+          new ButtonBuilder()
+            .setCustomId("list_next")
+            .setLabel("▶️")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(pageNum === totalPages),
+        );
+
+        return row;
+      };
+
+      const embed = generateEmbed(currentPage);
+      const buttons = generateButtons(currentPage);
+
+      const response = await interaction.reply({
         embeds: [embed],
+        components: totalPages > 1 ? [buttons] : [],
         flags: MessageFlags.Ephemeral,
       });
+
+      if (totalPages > 1) {
+        const collector = response.createMessageComponentCollector({
+          componentType: ComponentType.Button,
+          time: 300000, // 5 minutes
+        });
+
+        collector.on(
+          "collect",
+          async (buttonInteraction: ButtonInteraction) => {
+            if (buttonInteraction.user.id !== interaction.user.id) {
+              await buttonInteraction.reply({
+                content: "❌ You can't use these buttons.",
+                flags: MessageFlags.Ephemeral,
+              });
+              return;
+            }
+
+            if (buttonInteraction.customId === "list_prev" && currentPage > 1) {
+              currentPage--;
+            } else if (
+              buttonInteraction.customId === "list_next" &&
+              currentPage < totalPages
+            ) {
+              currentPage++;
+            }
+
+            const newEmbed = generateEmbed(currentPage);
+            const newButtons = generateButtons(currentPage);
+
+            await buttonInteraction.update({
+              embeds: [newEmbed],
+              components: [newButtons],
+            });
+          },
+        );
+
+        collector.on("end", async () => {
+          try {
+            await response.edit({
+              components: [],
+            });
+          } catch (error) {
+            console.error("Error removing buttons:", error);
+          }
+        });
+      }
     } catch (error) {
       console.error("❌ Error listing submissions:", error);
       await interaction.reply({

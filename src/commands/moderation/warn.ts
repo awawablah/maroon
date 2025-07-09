@@ -177,6 +177,19 @@ export const Warn: Command = {
     warns.push(warnData);
     saveWarnData(warns);
 
+    // Log the moderation action
+    logModerationAction(
+      "warn",
+      targetUser.id,
+      targetUser.username,
+      interaction.user.id,
+      interaction.user.username,
+      reason,
+      channel.id,
+      channel.name,
+      interaction.guildId!,
+    );
+
     // Create public embed
     const publicEmbed = new EmbedBuilder()
       .setTitle("⚠️ User Warned")
@@ -363,13 +376,13 @@ export const WarnList: Command = {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId("warn_prev")
-          .setLabel("◀️ Previous")
+          .setLabel("◀️")
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(page === 1),
 
         new ButtonBuilder()
           .setCustomId("warn_next")
-          .setLabel("Next ▶️")
+          .setLabel("▶️")
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(page === totalPages),
       );
@@ -806,20 +819,11 @@ export const BulkRemoveWarns: Command = {
   },
 };
 
-export const WarnStats: Command = {
-  name: "warnstats",
-  description: "View warning statistics for the server",
+export const WarnLeaderboard: Command = {
+  name: "warnleaderboard",
+  description: "View public warning leaderboard for the server",
   run: async (client: Client, interaction: ChatInputCommandInteraction) => {
     initializeFiles();
-
-    // Check permissions
-    if (!canUserWarn(interaction)) {
-      await interaction.reply({
-        content: "❌ You don't have permission to view warning statistics.",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
 
     const warns = loadWarnData().filter(
       (warn) => warn.guildId === interaction.guildId,
@@ -827,8 +831,8 @@ export const WarnStats: Command = {
 
     if (warns.length === 0) {
       await interaction.reply({
-        content: "📊 No warnings found in this server.",
-        flags: MessageFlags.Ephemeral,
+        content:
+          "📊 **Warning Leaderboard** 📊\n\n✅ No warnings found in this server - everyone's being good! 🎉",
       });
       return;
     }
@@ -836,7 +840,6 @@ export const WarnStats: Command = {
     // Calculate statistics
     const totalWarns = warns.length;
     const uniqueUsers = new Set(warns.map((warn) => warn.userId)).size;
-    const uniqueWarners = new Set(warns.map((warn) => warn.warnedById)).size;
 
     // Most warned users
     const userCounts = warns.reduce(
@@ -849,27 +852,12 @@ export const WarnStats: Command = {
 
     const topUsers = Object.entries(userCounts)
       .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([userId, count]) => {
+      .slice(0, 10)
+      .map(([userId, count], index) => {
         const warn = warns.find((w) => w.userId === userId);
-        return `• **${warn?.username || "Unknown"}**: ${count} warning${count > 1 ? "s" : ""}`;
-      });
-
-    // Most active warners
-    const warnerCounts = warns.reduce(
-      (acc, warn) => {
-        acc[warn.warnedById] = (acc[warn.warnedById] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    const topWarners = Object.entries(warnerCounts)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([warnerId, count]) => {
-        const warn = warns.find((w) => w.warnedById === warnerId);
-        return `• **${warn?.warnedBy || "Unknown"}**: ${count} warning${count > 1 ? "s" : ""} issued`;
+        const medal =
+          index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "📍";
+        return `${medal} **${warn?.username || "Unknown"}** - ${count} warning${count > 1 ? "s" : ""}`;
       });
 
     // Recent activity (last 7 days)
@@ -880,47 +868,666 @@ export const WarnStats: Command = {
       (warn) => new Date(warn.timestamp) > sevenDaysAgo,
     );
 
-    const embed = new EmbedBuilder()
-      .setTitle("📊 Warning Statistics")
-      .setColor(0x0099ff)
-      .addFields(
-        { name: "📈 Total Warnings", value: `${totalWarns}`, inline: true },
-        { name: "👥 Users Warned", value: `${uniqueUsers}`, inline: true },
-        { name: "🛡️ Staff Members", value: `${uniqueWarners}`, inline: true },
-        {
-          name: "📅 Last 7 Days",
-          value: `${recentWarns.length} warnings`,
-          inline: true,
-        },
-        {
-          name: "📊 Average per User",
-          value: `${(totalWarns / uniqueUsers).toFixed(1)}`,
-          inline: true,
-        },
-        { name: "\u200b", value: "\u200b", inline: true },
-      )
-      .setTimestamp();
+    let message = "📊 **SERVER WARNING LEADERBOARD** 📊\n\n";
+    message += `📈 **Total Warnings:** ${totalWarns}\n`;
+    message += `👥 **Users Warned:** ${uniqueUsers}\n`;
+    message += `📅 **Last 7 Days:** ${recentWarns.length} warnings\n`;
+    message += `📊 **Average per User:** ${(totalWarns / uniqueUsers).toFixed(1)}\n\n`;
 
-    if (topUsers.length > 0) {
-      embed.addFields({
-        name: "🥇 Most Warned Users",
-        value: topUsers.join("\n"),
-        inline: true,
-      });
-    }
+    message += "🏆 **TOP WARNED USERS** 🏆\n";
+    message += topUsers.join("\n");
 
-    if (topWarners.length > 0) {
-      embed.addFields({
-        name: "🛡️ Most Active Staff",
-        value: topWarners.join("\n"),
-        inline: true,
-      });
-    }
+    message += "\n\n💡 *Use `/warnlist @user` to see specific warnings*";
 
     await interaction.reply({
+      content: message,
+    });
+  },
+};
+
+export const Ban: Command = {
+  name: "ban",
+  description: "Ban a user from the server",
+  options: [
+    {
+      name: "user",
+      type: 6, // USER
+      description: "The user to ban",
+      required: true,
+    },
+    {
+      name: "reason",
+      type: 3, // STRING
+      description: "The reason for the ban",
+      required: true,
+    },
+    {
+      name: "deletedays",
+      type: 4, // INTEGER
+      description: "Days of messages to delete (0-7)",
+      required: false,
+    },
+  ],
+  run: async (client: Client, interaction: ChatInputCommandInteraction) => {
+    // Check permissions
+    if (!canUserWarn(interaction)) {
+      await interaction.reply({
+        content: "❌ You don't have permission to use the ban command.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const targetUser = interaction.options.getUser("user", true);
+    const reason = interaction.options.getString("reason", true);
+    const deleteDays = interaction.options.getInteger("deletedays") || 0;
+
+    // Validate delete days
+    if (deleteDays < 0 || deleteDays > 7) {
+      await interaction.reply({
+        content: "❌ Delete days must be between 0 and 7.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Prevent banning bots
+    if (targetUser.bot) {
+      await interaction.reply({
+        content: "❌ You cannot ban bots.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Prevent self-banning
+    if (targetUser.id === interaction.user.id) {
+      await interaction.reply({
+        content: "❌ You cannot ban yourself.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Check if user is in guild
+    const guild = interaction.guild;
+    if (!guild) {
+      await interaction.reply({
+        content: "❌ This command can only be used in a server.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    try {
+      // Try to get member to check permissions
+      const targetMember = await guild.members
+        .fetch(targetUser.id)
+        .catch(() => null);
+      const executorMember = await guild.members.fetch(interaction.user.id);
+
+      if (targetMember) {
+        // Check if target has higher role
+        if (
+          targetMember.roles.highest.position >=
+          executorMember.roles.highest.position
+        ) {
+          await interaction.reply({
+            content:
+              "❌ You cannot ban someone with equal or higher role permissions.",
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        // Check if target is an administrator
+        if (targetMember.permissions.has("Administrator")) {
+          await interaction.reply({
+            content: "❌ You cannot ban an administrator.",
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+      }
+
+      // Send DM before banning
+      try {
+        const dmEmbed = new EmbedBuilder()
+          .setTitle("🔨 You Have Been Banned")
+          .setColor(0xff0000)
+          .addFields(
+            {
+              name: "Banned by",
+              value: interaction.user.username,
+              inline: true,
+            },
+            { name: "Server", value: guild.name, inline: true },
+            { name: "Reason", value: reason, inline: false },
+            {
+              name: "Time",
+              value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+              inline: false,
+            },
+          )
+          .setTimestamp()
+          .setFooter({
+            text: "You can appeal this ban by contacting the server moderators.",
+          });
+
+        await targetUser.send({ embeds: [dmEmbed] });
+      } catch (error) {
+        console.log("Could not send DM to banned user:", error);
+      }
+
+      // Ban the user
+      await guild.members.ban(targetUser, {
+        reason: `${reason} | Banned by: ${interaction.user.username}`,
+        deleteMessageSeconds: deleteDays * 24 * 60 * 60,
+      });
+
+      // Log the moderation action
+      logModerationAction(
+        "ban",
+        targetUser.id,
+        targetUser.username,
+        interaction.user.id,
+        interaction.user.username,
+        reason,
+        interaction.channelId!,
+        (interaction.channel as TextChannel).name,
+        guild.id,
+        { deleteDays },
+      );
+
+      // Create public embed
+      const publicEmbed = new EmbedBuilder()
+        .setTitle("🔨 User Banned")
+        .setColor(0xff0000)
+        .addFields(
+          { name: "User", value: `<@${targetUser.id}>`, inline: true },
+          {
+            name: "Banned by",
+            value: `<@${interaction.user.id}>`,
+            inline: true,
+          },
+          { name: "Reason", value: reason, inline: false },
+          {
+            name: "Time",
+            value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+            inline: true,
+          },
+          {
+            name: "Messages Deleted",
+            value: `${deleteDays} day${deleteDays !== 1 ? "s" : ""}`,
+            inline: true,
+          },
+        )
+        .setTimestamp();
+
+      await interaction.reply({
+        embeds: [publicEmbed],
+      });
+    } catch (error) {
+      console.error("Error banning user:", error);
+      await interaction.reply({
+        content:
+          "❌ Failed to ban user. They may have already left the server or I don't have permission.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+  },
+};
+
+export const Kick: Command = {
+  name: "kick",
+  description: "Kick a user from the server",
+  options: [
+    {
+      name: "user",
+      type: 6, // USER
+      description: "The user to kick",
+      required: true,
+    },
+    {
+      name: "reason",
+      type: 3, // STRING
+      description: "The reason for the kick",
+      required: true,
+    },
+  ],
+  run: async (client: Client, interaction: ChatInputCommandInteraction) => {
+    // Check permissions
+    if (!canUserWarn(interaction)) {
+      await interaction.reply({
+        content: "❌ You don't have permission to use the kick command.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const targetUser = interaction.options.getUser("user", true);
+    const reason = interaction.options.getString("reason", true);
+
+    // Prevent kicking bots
+    if (targetUser.bot) {
+      await interaction.reply({
+        content: "❌ You cannot kick bots.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Prevent self-kicking
+    if (targetUser.id === interaction.user.id) {
+      await interaction.reply({
+        content: "❌ You cannot kick yourself.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Check if user is in guild
+    const guild = interaction.guild;
+    if (!guild) {
+      await interaction.reply({
+        content: "❌ This command can only be used in a server.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    try {
+      // Try to get member
+      const targetMember = await guild.members.fetch(targetUser.id);
+      const executorMember = await guild.members.fetch(interaction.user.id);
+
+      if (!targetMember) {
+        await interaction.reply({
+          content: "❌ User is not in this server.",
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      // Check if target has higher role
+      if (
+        targetMember.roles.highest.position >=
+        executorMember.roles.highest.position
+      ) {
+        await interaction.reply({
+          content:
+            "❌ You cannot kick someone with equal or higher role permissions.",
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      // Check if target is an administrator
+      if (targetMember.permissions.has("Administrator")) {
+        await interaction.reply({
+          content: "❌ You cannot kick an administrator.",
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      // Send DM before kicking
+      try {
+        const dmEmbed = new EmbedBuilder()
+          .setTitle("👢 You Have Been Kicked")
+          .setColor(0xff9900)
+          .addFields(
+            {
+              name: "Kicked by",
+              value: interaction.user.username,
+              inline: true,
+            },
+            { name: "Server", value: guild.name, inline: true },
+            { name: "Reason", value: reason, inline: false },
+            {
+              name: "Time",
+              value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+              inline: false,
+            },
+          )
+          .setTimestamp()
+          .setFooter({
+            text: "You can rejoin the server if you have an invite link.",
+          });
+
+        await targetUser.send({ embeds: [dmEmbed] });
+      } catch (error) {
+        console.log("Could not send DM to kicked user:", error);
+      }
+
+      // Kick the user
+      await targetMember.kick(
+        `${reason} | Kicked by: ${interaction.user.username}`,
+      );
+
+      // Log the moderation action
+      logModerationAction(
+        "kick",
+        targetUser.id,
+        targetUser.username,
+        interaction.user.id,
+        interaction.user.username,
+        reason,
+        interaction.channelId!,
+        (interaction.channel as TextChannel).name,
+        guild.id,
+      );
+
+      // Create public embed
+      const publicEmbed = new EmbedBuilder()
+        .setTitle("👢 User Kicked")
+        .setColor(0xff9900)
+        .addFields(
+          { name: "User", value: `<@${targetUser.id}>`, inline: true },
+          {
+            name: "Kicked by",
+            value: `<@${interaction.user.id}>`,
+            inline: true,
+          },
+          { name: "Reason", value: reason, inline: false },
+          {
+            name: "Time",
+            value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+            inline: true,
+          },
+        )
+        .setTimestamp();
+
+      await interaction.reply({
+        embeds: [publicEmbed],
+      });
+    } catch (error) {
+      console.error("Error kicking user:", error);
+      await interaction.reply({
+        content:
+          "❌ Failed to kick user. They may have already left the server or I don't have permission.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+  },
+};
+
+interface ModerationLogEntry {
+  id: string;
+  type: "warn" | "ban" | "kick";
+  userId: string;
+  username: string;
+  moderatorId: string;
+  moderatorUsername: string;
+  reason: string;
+  timestamp: string;
+  channelId: string;
+  channelName: string;
+  guildId: string;
+  additionalInfo?: any;
+}
+
+const MOD_LOG_FILE = path.join(process.cwd(), "moderation_log.json");
+
+function initializeModLog(): void {
+  if (!fs.existsSync(MOD_LOG_FILE)) {
+    fs.writeFileSync(MOD_LOG_FILE, "[]");
+  }
+}
+
+function loadModLog(): ModerationLogEntry[] {
+  try {
+    const data = fs.readFileSync(MOD_LOG_FILE, "utf8");
+    return JSON.parse(data);
+  } catch (error) {
+    console.error("Error loading moderation log:", error);
+    return [];
+  }
+}
+
+function saveModLog(data: ModerationLogEntry[]): void {
+  try {
+    fs.writeFileSync(MOD_LOG_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error("Error saving moderation log:", error);
+  }
+}
+
+function logModerationAction(
+  type: "warn" | "ban" | "kick",
+  userId: string,
+  username: string,
+  moderatorId: string,
+  moderatorUsername: string,
+  reason: string,
+  channelId: string,
+  channelName: string,
+  guildId: string,
+  additionalInfo?: any,
+): void {
+  initializeModLog();
+
+  const entry: ModerationLogEntry = {
+    id: `${type}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
+    type,
+    userId,
+    username,
+    moderatorId,
+    moderatorUsername,
+    reason,
+    timestamp: new Date().toISOString(),
+    channelId,
+    channelName,
+    guildId,
+    additionalInfo,
+  };
+
+  const log = loadModLog();
+  log.push(entry);
+  saveModLog(log);
+}
+
+export const ModerationLog: Command = {
+  name: "modlog",
+  description: "View moderation action log with pagination",
+  options: [
+    {
+      name: "user",
+      type: 6, // USER
+      description: "Filter log for a specific user",
+      required: false,
+    },
+    {
+      name: "type",
+      type: 3, // STRING
+      description: "Filter by action type",
+      required: false,
+      choices: [
+        { name: "Warnings", value: "warn" },
+        { name: "Bans", value: "ban" },
+        { name: "Kicks", value: "kick" },
+      ],
+    },
+  ],
+  run: async (client: Client, interaction: ChatInputCommandInteraction) => {
+    initializeModLog();
+
+    // Check permissions
+    if (!canUserWarn(interaction)) {
+      await interaction.reply({
+        content: "❌ You don't have permission to view the moderation log.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const targetUser = interaction.options.getUser("user");
+    const actionType = interaction.options.getString("type") as
+      | "warn"
+      | "ban"
+      | "kick"
+      | null;
+    let logEntries = loadModLog();
+
+    // Filter by guild
+    logEntries = logEntries.filter(
+      (entry) => entry.guildId === interaction.guildId,
+    );
+
+    // Filter by user if specified
+    if (targetUser) {
+      logEntries = logEntries.filter((entry) => entry.userId === targetUser.id);
+    }
+
+    // Filter by type if specified
+    if (actionType) {
+      logEntries = logEntries.filter((entry) => entry.type === actionType);
+    }
+
+    // Sort by timestamp (newest first)
+    logEntries.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    );
+
+    if (logEntries.length === 0) {
+      let message = "No moderation actions found";
+      if (targetUser) message += ` for ${targetUser.username}`;
+      if (actionType) message += ` of type ${actionType}`;
+      message += " in this server.";
+
+      await interaction.reply({
+        content: `📋 ${message}`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const itemsPerPage = 5;
+    const totalPages = Math.ceil(logEntries.length / itemsPerPage);
+    let currentPage = 1;
+
+    const generateEmbed = (page: number) => {
+      const startIndex = (page - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const pageEntries = logEntries.slice(startIndex, endIndex);
+
+      let title = "📋 Moderation Log";
+      if (targetUser) title += ` for ${targetUser.username}`;
+      if (actionType) title += ` (${actionType}s)`;
+      title += ` (Page ${page}/${totalPages})`;
+
+      const embed = new EmbedBuilder()
+        .setTitle(title)
+        .setColor(0x0099ff)
+        .setTimestamp()
+        .setFooter({ text: `Total entries: ${logEntries.length}` });
+
+      pageEntries.forEach((entry, index) => {
+        const entryDate = new Date(entry.timestamp);
+        const timeString = `<t:${Math.floor(entryDate.getTime() / 1000)}:R>`;
+
+        const typeEmoji =
+          entry.type === "warn" ? "⚠️" : entry.type === "ban" ? "🔨" : "👢";
+        const actionName =
+          entry.type.charAt(0).toUpperCase() + entry.type.slice(1);
+
+        let description = `**${actionName}:** ${entry.username}\n`;
+        description += `**Moderator:** ${entry.moderatorUsername}\n`;
+        description += `**Reason:** ${entry.reason}\n`;
+        description += `**Channel:** #${entry.channelName}\n`;
+        description += `**Time:** ${timeString}`;
+
+        if (
+          entry.additionalInfo &&
+          entry.type === "ban" &&
+          entry.additionalInfo.deleteDays
+        ) {
+          description += `\n**Messages Deleted:** ${entry.additionalInfo.deleteDays} day(s)`;
+        }
+
+        embed.addFields({
+          name: `${typeEmoji} ${startIndex + index + 1}. ${actionName} Action`,
+          value: description,
+          inline: false,
+        });
+      });
+
+      return embed;
+    };
+
+    const generateButtons = (page: number) => {
+      const row = new ActionRowBuilder<ButtonBuilder>();
+
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId("modlog_prev")
+          .setLabel("◀️")
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(page === 1),
+
+        new ButtonBuilder()
+          .setCustomId("modlog_next")
+          .setLabel("▶️")
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(page === totalPages),
+      );
+
+      return row;
+    };
+
+    const embed = generateEmbed(currentPage);
+    const buttons = generateButtons(currentPage);
+
+    const response = await interaction.reply({
       embeds: [embed],
+      components: totalPages > 1 ? [buttons] : [],
       flags: MessageFlags.Ephemeral,
     });
+
+    if (totalPages > 1) {
+      const collector = response.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 300000, // 5 minutes
+      });
+
+      collector.on("collect", async (buttonInteraction: ButtonInteraction) => {
+        if (buttonInteraction.user.id !== interaction.user.id) {
+          await buttonInteraction.reply({
+            content: "❌ You can't use these buttons.",
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        if (buttonInteraction.customId === "modlog_prev" && currentPage > 1) {
+          currentPage--;
+        } else if (
+          buttonInteraction.customId === "modlog_next" &&
+          currentPage < totalPages
+        ) {
+          currentPage++;
+        }
+
+        const newEmbed = generateEmbed(currentPage);
+        const newButtons = generateButtons(currentPage);
+
+        await buttonInteraction.update({
+          embeds: [newEmbed],
+          components: [newButtons],
+        });
+      });
+
+      collector.on("end", async () => {
+        try {
+          await response.edit({
+            components: [],
+          });
+        } catch (error) {
+          console.error("Error removing buttons:", error);
+        }
+      });
+    }
   },
 };
 

@@ -59,17 +59,21 @@ maroon/
 /findallapproved <page> || <user>
 /submit
 /removesubmission <index>
+/listsubmissions [page]
 /warn <user> <reason>
 /warnlist [user]
 /warnpermissions
 /removewarn <id>
 /clearuserwarns <user>
 /bulkremovewarns <ids>
-/warnstats
+/warnleaderboard
+/ban <user> <reason> [deletedays]
+/kick <user> <reason>
+/modlog [user] [type]
 ..!modifywarn <@role> -> enable/disable
 ```
 
-## Warn System Commands
+## Moderation System Commands
 
 ### Core Warning Commands
 
@@ -83,9 +87,25 @@ maroon/
 #### `/warnlist [user]`
 - Lists all warnings with improved horizontal pagination (3 per page)
 - Optional user parameter to filter warnings for a specific user
-- Uses arrow buttons for navigation between pages
+- Uses arrow buttons (◀️ ▶️) for navigation between pages
 - Shows warning details in a clean, spaced layout with separators
 - Displays: user, warner, time, reason, location, and warning ID
+- Requires warn permissions to use
+
+### Submission Management Commands
+
+#### `/findallapproved [page] [user]`
+- Lists approved submissions with pagination (5 per page)
+- Optional user parameter to filter submissions for a specific user
+- Uses arrow buttons (◀️ ▶️) for navigation between pages
+- Shows submission content, themes, and approval timestamp
+- Requires warn permissions to use
+
+#### `/listsubmissions [page]`
+- Lists all approved submissions with their index numbers (5 per page)
+- Uses arrow buttons (◀️ ▶️) for navigation between pages
+- Shows submission content and detected themes
+- Useful for finding submission index numbers for removal
 - Requires warn permissions to use
 
 ### Warning Management Commands
@@ -111,11 +131,21 @@ maroon/
 
 ### Statistics and Administration
 
-#### `/warnstats`
-- Shows comprehensive warning statistics for the server
-- Displays: total warnings, unique users, staff activity, recent trends
-- Shows top warned users and most active staff members
+#### `/warnleaderboard`
+- Shows public warning leaderboard for the server (visible to everyone)
+- Displays: total warnings, unique users, recent activity
+- Shows top 10 warned users with medal rankings (🥇🥈🥉)
+- Public command that doesn't require special permissions
+
+#### `/modlog [user] [type]`
+- Shows comprehensive moderation action log with pagination (5 per page)
+- Optional user parameter to filter actions for a specific user
+- Optional type parameter to filter by action type (warn/ban/kick)
+- Uses arrow buttons (◀️ ▶️) for navigation between pages
+- Shows all moderation actions: warnings, bans, and kicks
+- Displays: action type, user, moderator, reason, channel, time
 - Requires warn permissions to use
+- Example: `/modlog @JohnDoe warn` - shows only warnings for JohnDoe
 
 #### `/warnpermissions`
 - Shows which roles currently have warn permissions
@@ -131,12 +161,48 @@ maroon/
   - `..!modifywarn @Moderator -> enable`
   - `..!modifywarn @Helper -> disable`
 
-### Warning Data Storage
+### Ban and Kick Commands
+
+#### `/ban <user> <reason> [deletedays]`
+- Bans a user from the server permanently
+- Sends public embed in the channel where command was used
+- DMs the banned user with details before banning
+- Optional `deletedays` parameter to delete messages (0-7 days)
+- Requires warn permissions to use
+- Includes permission checks (can't ban higher roles or admins)
+- Example: `/ban @JohnDoe Continuous rule violations 1`
+
+#### `/kick <user> <reason>`
+- Kicks a user from the server (they can rejoin with invite)
+- Sends public embed in the channel where command was used
+- DMs the kicked user with details before kicking
+- Requires warn permissions to use
+- Includes permission checks (can't kick higher roles or admins)
+- Example: `/kick @JohnDoe Inappropriate behavior`
+
+### Data Storage
 - All warnings are stored in `warn_data.json` in the bot's directory
 - Warnings include: user info, reason, timestamp, channel, who issued it, unique ID
 - Role permissions are stored in `warn_config.json`
+- All moderation actions are logged in `moderation_log.json` for unified tracking
+- Approved submissions are stored in `approved_submissions.json`
 - Data is persistent across bot restarts
 - Warning IDs are automatically generated for easy reference
+- Ban and kick actions are logged in Discord's audit log and the moderation log
+
+### Pagination Features
+- All paginated commands use arrow buttons (◀️ ▶️) for easy navigation
+- Buttons automatically disable when at first/last page
+- Pagination sessions timeout after 5 minutes
+- Only the command user can use the navigation buttons
+- Buttons are automatically removed when session expires
+
+### Permission Requirements
+- **Warn Permissions**: Required for `/warn`, `/warnlist`, `/removewarn`, `/ban`, `/kick`, `/modlog`, `/findallapproved`, `/listsubmissions`
+- **Administrator Only**: Required for `/clearuserwarns`, `/bulkremovewarns`, `/warnpermissions`, `..!modifywarn`
+- **Public Access**: `/warnleaderboard` is available to all users
+- **Role Hierarchy**: Cannot moderate users with equal or higher roles
+- **Admin Protection**: Cannot moderate Discord Administrators
 ```
 
 ## 🛠️ Development

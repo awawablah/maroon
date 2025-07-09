@@ -1,6 +1,11 @@
 import { Command } from "./Command";
 import { Hello } from "./commands/hello";
-import { Submit, FindApproved, RemoveSubmission } from "./commands/submit";
+import {
+  Submit,
+  FindApproved,
+  RemoveSubmission,
+  ListSubmissions,
+} from "./commands/submit";
 import { WwydTest, WwydStatus } from "./commands/wwydstatus";
 import { Ping } from "./commands/ping";
 import {
@@ -10,7 +15,10 @@ import {
   RemoveWarn,
   ClearUserWarns,
   BulkRemoveWarns,
-  WarnStats,
+  WarnLeaderboard,
+  Ban,
+  Kick,
+  ModerationLog,
 } from "./commands/moderation/warn";
 
 export const Commands: Command[] = [
@@ -18,6 +26,7 @@ export const Commands: Command[] = [
   Submit,
   FindApproved,
   RemoveSubmission,
+  ListSubmissions,
   WwydTest,
   WwydStatus,
   Ping,
@@ -27,5 +36,8 @@ export const Commands: Command[] = [
   RemoveWarn,
   ClearUserWarns,
   BulkRemoveWarns,
-  WarnStats,
+  WarnLeaderboard,
+  Ban,
+  Kick,
+  ModerationLog,
 ];
