@@ -70,7 +70,9 @@ maroon/
 /ban <user> <reason> [deletedays]
 /kick <user> <reason>
 /modlog [user] [type]
+/bankickpermissions
 ..!modifywarn <@role> -> enable/disable
+..!modifybankick <@role> -> enable/disable
 ```
 
 ## Moderation System Commands
@@ -168,7 +170,7 @@ maroon/
 - Sends public embed in the channel where command was used
 - DMs the banned user with details before banning
 - Optional `deletedays` parameter to delete messages (0-7 days)
-- Requires warn permissions to use
+- Requires ban/kick permissions to use
 - Includes permission checks (can't ban higher roles or admins)
 - Example: `/ban @JohnDoe Continuous rule violations 1`
 
@@ -176,19 +178,33 @@ maroon/
 - Kicks a user from the server (they can rejoin with invite)
 - Sends public embed in the channel where command was used
 - DMs the kicked user with details before kicking
-- Requires warn permissions to use
+- Requires ban/kick permissions to use
 - Includes permission checks (can't kick higher roles or admins)
 - Example: `/kick @JohnDoe Inappropriate behavior`
+
+#### `/bankickpermissions`
+- Shows which roles currently have ban/kick permissions
+- Admin-only command for checking current configuration
+- Displays role names and IDs with status information
+
+#### `..!modifybankick <@role> -> enable/disable`
+- Text-based command (not slash command) that must use the `..!` prefix
+- Only Discord Administrators can use this command
+- Enables or disables ban/kick permissions for a specific role
+- Enhanced error handling and validation
+- Syntax examples:
+  - `..!modifybankick @Moderator -> enable`
+  - `..!modifybankick @Helper -> disable`
 
 ### Data Storage
 - All warnings are stored in `warn_data.json` in the bot's directory
 - Warnings include: user info, reason, timestamp, channel, who issued it, unique ID
-- Role permissions are stored in `warn_config.json`
+- Warn role permissions are stored in `warn_config.json`
+- Ban/kick role permissions are stored in `bankick_config.json`
 - All moderation actions are logged in `moderation_log.json` for unified tracking
 - Approved submissions are stored in `approved_submissions.json`
 - Data is persistent across bot restarts
 - Warning IDs are automatically generated for easy reference
-<<<<<<< HEAD
 - Ban and kick actions are logged in Discord's audit log and the moderation log
 
 ### Pagination Features
@@ -199,15 +215,13 @@ maroon/
 - Buttons are automatically removed when session expires
 
 ### Permission Requirements
-- **Warn Permissions**: Required for `/warn`, `/warnlist`, `/removewarn`, `/ban`, `/kick`, `/modlog`, `/findallapproved`, `/listsubmissions`
-- **Administrator Only**: Required for `/clearuserwarns`, `/bulkremovewarns`, `/warnpermissions`, `..!modifywarn`
+- **Warn Permissions**: Required for `/warn`, `/warnlist`, `/removewarn`, `/modlog`, `/findallapproved`, `/listsubmissions`
+- **Ban/Kick Permissions**: Required for `/ban`, `/kick` (separate from warn permissions)
+- **Administrator Only**: Required for `/clearuserwarns`, `/bulkremovewarns`, `/warnpermissions`, `/bankickpermissions`, `..!modifywarn`, `..!modifybankick`
 - **Public Access**: `/warnleaderboard` is available to all users
 - **Role Hierarchy**: Cannot moderate users with equal or higher roles
 - **Admin Protection**: Cannot moderate Discord Administrators
 ```
-=======
-
->>>>>>> 11fe3230d6c9e75af1cfbfe2537871dfc7e22dd0
 
 ## 🛠️ Development
 

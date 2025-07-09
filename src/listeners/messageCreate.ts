@@ -1,6 +1,9 @@
 import { Client, Message } from "discord.js";
 import { handleWwydMessage } from "../handlers/wwydHandler";
-import { handleModifyWarnCommand } from "../commands/moderation/warn";
+import {
+  handleModifyWarnCommand,
+  handleModifyBanKickCommand,
+} from "../commands/moderation/warn";
 
 export default (client: Client): void => {
   client.on("messageCreate", async (message: Message) => {
@@ -9,6 +12,11 @@ export default (client: Client): void => {
 
     // Handle ..!modifywarn command
     if (handleModifyWarnCommand(message)) {
+      return;
+    }
+
+    // Handle ..!modifybankick command
+    if (handleModifyBanKickCommand(message)) {
       return;
     }
 

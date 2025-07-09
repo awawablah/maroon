@@ -33,8 +33,13 @@ interface WarnConfig {
   allowedRoles: string[];
 }
 
+interface BanKickConfig {
+  allowedRoles: string[];
+}
+
 const WARN_DATA_FILE = path.join(process.cwd(), "warn_data.json");
 const WARN_CONFIG_FILE = path.join(process.cwd(), "warn_config.json");
+const BANKICK_CONFIG_FILE = path.join(process.cwd(), "bankick_config.json");
 
 // Initialize files if they don't exist
 function initializeFiles(): void {
@@ -44,6 +49,13 @@ function initializeFiles(): void {
   if (!fs.existsSync(WARN_CONFIG_FILE)) {
     const defaultConfig: WarnConfig = { allowedRoles: [] };
     fs.writeFileSync(WARN_CONFIG_FILE, JSON.stringify(defaultConfig, null, 2));
+  }
+  if (!fs.existsSync(BANKICK_CONFIG_FILE)) {
+    const defaultConfig: BanKickConfig = { allowedRoles: [] };
+    fs.writeFileSync(
+      BANKICK_CONFIG_FILE,
+      JSON.stringify(defaultConfig, null, 2),
+    );
   }
 }
 
@@ -83,6 +95,24 @@ function saveWarnConfig(config: WarnConfig): void {
   }
 }
 
+function loadBanKickConfig(): BanKickConfig {
+  try {
+    const data = fs.readFileSync(BANKICK_CONFIG_FILE, "utf8");
+    return JSON.parse(data);
+  } catch (error) {
+    console.error("Error loading ban/kick config:", error);
+    return { allowedRoles: [] };
+  }
+}
+
+function saveBanKickConfig(config: BanKickConfig): void {
+  try {
+    fs.writeFileSync(BANKICK_CONFIG_FILE, JSON.stringify(config, null, 2));
+  } catch (error) {
+    console.error("Error saving ban/kick config:", error);
+  }
+}
+
 function canUserWarn(interaction: ChatInputCommandInteraction): boolean {
   // Check if user has Administrator permission
   if (interaction.memberPermissions?.has("Administrator")) {
@@ -91,6 +121,27 @@ function canUserWarn(interaction: ChatInputCommandInteraction): boolean {
 
   // Check if user has any of the allowed roles
   const config = loadWarnConfig();
+  const member = interaction.member;
+
+  if (!member || !member.roles || config.allowedRoles.length === 0) {
+    return false;
+  }
+
+  const memberRoles = Array.isArray(member.roles)
+    ? member.roles
+    : member.roles.cache.map((role) => role.id);
+
+  return config.allowedRoles.some((roleId) => memberRoles.includes(roleId));
+}
+
+function canUserBanKick(interaction: ChatInputCommandInteraction): boolean {
+  // Check if user has Administrator permission
+  if (interaction.memberPermissions?.has("Administrator")) {
+    return true;
+  }
+
+  // Check if user has any of the allowed roles
+  const config = loadBanKickConfig();
   const member = interaction.member;
 
   if (!member || !member.roles || config.allowedRoles.length === 0) {
@@ -541,6 +592,106 @@ export function handleModifyWarnCommand(message: Message): boolean {
   return true;
 }
 
+export function handleModifyBanKickCommand(message: Message): boolean {
+  // Check if message starts with ..!modifybankick
+  if (!message.content.startsWith("..!modifybankick")) {
+    return false;
+  }
+
+  initializeFiles();
+
+  // Check if user has Administrator permission
+  if (!message.member?.permissions.has("Administrator")) {
+    message.reply(
+      "❌ You must be a Discord Administrator to use this command.",
+    );
+    return true;
+  }
+
+  // Check if command was used in a guild
+  if (!message.guild) {
+    message.reply("❌ This command can only be used in a server.");
+    return true;
+  }
+
+  // Parse the command: ..!modifybankick <@role> -> enable/disable
+  const content = message.content.substring(16).trim(); // Remove "..!modifybankick "
+
+  // Check if content is empty
+  if (!content) {
+    message.reply(
+      "❌ Missing arguments. Use: `..!modifybankick <@role> -> enable/disable`\n\n**Examples:**\n• `..!modifybankick @Moderator -> enable`\n• `..!modifybankick @Helper -> disable`",
+    );
+    return true;
+  }
+
+  // Match pattern: <@&roleId> -> action or <@roleId> -> action
+  const roleMatch = content.match(/^<@&?(\d+)>\s*->\s*(enable|disable)$/i);
+
+  if (!roleMatch) {
+    message.reply(
+      "❌ Invalid syntax. Use: `..!modifybankick <@role> -> enable/disable`\n\n**Examples:**\n• `..!modifybankick @Moderator -> enable`\n• `..!modifybankick @Helper -> disable`\n\n**Make sure to:**\n• Mention the role with @\n• Use the exact syntax with spaces around `->`\n• Use either `enable` or `disable`",
+    );
+    return true;
+  }
+
+  const roleId = roleMatch[1];
+  const action = roleMatch[2].toLowerCase();
+
+  // Get the role
+  const role = message.guild.roles.cache.get(roleId);
+  if (!role) {
+    message.reply(
+      "❌ Role not found. Make sure the role exists and try again.",
+    );
+    return true;
+  }
+
+  // Prevent modifying @everyone role
+  if (role.id === message.guild.id) {
+    message.reply("❌ Cannot modify ban/kick permissions for @everyone role.");
+    return true;
+  }
+
+  const config = loadBanKickConfig();
+
+  try {
+    if (action === "enable") {
+      if (!config.allowedRoles.includes(role.id)) {
+        config.allowedRoles.push(role.id);
+        saveBanKickConfig(config);
+        message.reply(
+          `✅ Enabled ban/kick permissions for role **${role.name}**.`,
+        );
+      } else {
+        message.reply(
+          `⚠️ Role **${role.name}** already has ban/kick permissions.`,
+        );
+      }
+    } else if (action === "disable") {
+      const index = config.allowedRoles.indexOf(role.id);
+      if (index > -1) {
+        config.allowedRoles.splice(index, 1);
+        saveBanKickConfig(config);
+        message.reply(
+          `✅ Disabled ban/kick permissions for role **${role.name}**.`,
+        );
+      } else {
+        message.reply(
+          `⚠️ Role **${role.name}** doesn't have ban/kick permissions.`,
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Error modifying ban/kick permissions:", error);
+    message.reply(
+      "❌ An error occurred while modifying ban/kick permissions. Please try again.",
+    );
+  }
+
+  return true;
+}
+
 export const RemoveWarn: Command = {
   name: "removewarn",
   description: "Remove a warning by ID",
@@ -910,7 +1061,7 @@ export const Ban: Command = {
   ],
   run: async (client: Client, interaction: ChatInputCommandInteraction) => {
     // Check permissions
-    if (!canUserWarn(interaction)) {
+    if (!canUserBanKick(interaction)) {
       await interaction.reply({
         content: "❌ You don't have permission to use the ban command.",
         flags: MessageFlags.Ephemeral,
@@ -1097,7 +1248,7 @@ export const Kick: Command = {
   ],
   run: async (client: Client, interaction: ChatInputCommandInteraction) => {
     // Check permissions
-    if (!canUserWarn(interaction)) {
+    if (!canUserBanKick(interaction)) {
       await interaction.reply({
         content: "❌ You don't have permission to use the kick command.",
         flags: MessageFlags.Ephemeral,
@@ -1587,6 +1738,72 @@ export const WarnPermissions: Command = {
       name: "Note",
       value:
         "Discord Administrators can always use warn commands regardless of role permissions.",
+      inline: false,
+    });
+
+    await interaction.reply({
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral,
+    });
+  },
+};
+
+export const BanKickPermissions: Command = {
+  name: "bankickpermissions",
+  description: "View current ban/kick role permissions (Admin only)",
+  run: async (client: Client, interaction: ChatInputCommandInteraction) => {
+    initializeFiles();
+
+    // Check if user has Administrator permission
+    if (!interaction.memberPermissions?.has("Administrator")) {
+      await interaction.reply({
+        content: "❌ You must be a Discord Administrator to use this command.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const config = loadBanKickConfig();
+
+    if (config.allowedRoles.length === 0) {
+      await interaction.reply({
+        content:
+          "📋 **Current Ban/Kick Permissions:**\n\n❌ No roles have ban/kick permissions.\n\n*Only Discord Administrators can use ban/kick commands.*",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle("🔨 Ban/Kick Permissions")
+      .setColor(0xff0000)
+      .setDescription("The following roles can use ban and kick commands:")
+      .setTimestamp();
+
+    let rolesText = "";
+    for (const roleId of config.allowedRoles) {
+      try {
+        const role = await interaction.guild?.roles.fetch(roleId);
+        if (role) {
+          rolesText += `• **${role.name}** (${role.id})\n`;
+        } else {
+          rolesText += `• *Unknown Role* (${roleId}) - Role may have been deleted\n`;
+        }
+      } catch (error) {
+        rolesText += `• *Error fetching role* (${roleId})\n`;
+      }
+    }
+
+    embed.addFields({
+      name: "Allowed Roles",
+      value: rolesText || "No valid roles found",
+      inline: false,
+    });
+
+    embed.addFields({
+      name: "Note",
+      value:
+        "Discord Administrators can always use ban/kick commands regardless of role permissions.",
       inline: false,
     });
 

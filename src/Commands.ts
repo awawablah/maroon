@@ -19,6 +19,7 @@ import {
   Ban,
   Kick,
   ModerationLog,
+  BanKickPermissions,
 } from "./commands/moderation/warn";
 
 export const Commands: Command[] = [
@@ -40,4 +41,5 @@ export const Commands: Command[] = [
   Ban,
   Kick,
   ModerationLog,
+  BanKickPermissions,
 ];
