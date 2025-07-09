@@ -3,6 +3,8 @@ node_modules/
 
 approved_submissions.json
 userWwydPrompts.json
+warn_config.json
+warn_data.json
 
 # Build output
 dist/

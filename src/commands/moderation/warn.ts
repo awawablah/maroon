@@ -288,7 +288,7 @@ export const WarnList: Command = {
       return;
     }
 
-    const itemsPerPage = 5;
+    const itemsPerPage = 3;
     const totalPages = Math.ceil(warns.length / itemsPerPage);
     let currentPage = 1;
 
@@ -305,17 +305,53 @@ export const WarnList: Command = {
         .setTitle(`${title} (Page ${page}/${totalPages})`)
         .setColor(0xffaa00)
         .setTimestamp()
-        .setFooter({ text: `Total warnings: ${warns.length}` });
+        .setFooter({
+          text: `Total warnings: ${warns.length} • Use /removewarn <id> to remove a warning`,
+        });
 
       pageWarns.forEach((warn, index) => {
         const warnDate = new Date(warn.timestamp);
         const timeString = `<t:${Math.floor(warnDate.getTime() / 1000)}:R>`;
 
+        // Create a more horizontal layout
+        const reasonPreview =
+          warn.reason.length > 80
+            ? warn.reason.substring(0, 80) + "..."
+            : warn.reason;
+
         embed.addFields({
-          name: `${startIndex + index + 1}. ${warn.username}`,
-          value: `**Reason:** ${warn.reason}\n**Warned by:** ${warn.warnedBy}\n**Channel:** #${warn.channelName}\n**Time:** ${timeString}\n**ID:** \`${warn.id}\``,
+          name: `📋 Warning #${startIndex + index + 1}`,
+          value: `**User:** ${warn.username} • **Warned by:** ${warn.warnedBy} • **Time:** ${timeString}`,
           inline: false,
         });
+
+        embed.addFields({
+          name: `📝 Reason`,
+          value: reasonPreview,
+          inline: true,
+        });
+
+        embed.addFields({
+          name: `📍 Location`,
+          value: `#${warn.channelName}`,
+          inline: true,
+        });
+
+        embed.addFields({
+          name: `🔗 ID`,
+          value: `\`${warn.id}\``,
+          inline: true,
+        });
+
+        // Add a spacer between warnings
+        if (index < pageWarns.length - 1) {
+          embed.addFields({
+            name: "\u200b",
+            value:
+              "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            inline: false,
+          });
+        }
       });
 
       return embed;
@@ -491,6 +527,402 @@ export function handleModifyWarnCommand(message: Message): boolean {
 
   return true;
 }
+
+export const RemoveWarn: Command = {
+  name: "removewarn",
+  description: "Remove a warning by ID",
+  options: [
+    {
+      name: "id",
+      type: 3, // STRING
+      description: "The warning ID to remove",
+      required: true,
+    },
+  ],
+  run: async (client: Client, interaction: ChatInputCommandInteraction) => {
+    initializeFiles();
+
+    // Check permissions
+    if (!canUserWarn(interaction)) {
+      await interaction.reply({
+        content: "❌ You don't have permission to remove warnings.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const warnId = interaction.options.getString("id", true);
+    const warns = loadWarnData();
+
+    // Find the warning
+    const warnIndex = warns.findIndex(
+      (warn) => warn.id === warnId && warn.guildId === interaction.guildId,
+    );
+
+    if (warnIndex === -1) {
+      await interaction.reply({
+        content: `❌ Warning with ID \`${warnId}\` not found in this server.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const removedWarn = warns[warnIndex];
+
+    // Remove the warning
+    warns.splice(warnIndex, 1);
+    saveWarnData(warns);
+
+    // Create removal embed
+    const embed = new EmbedBuilder()
+      .setTitle("🗑️ Warning Removed")
+      .setColor(0x00ff00)
+      .addFields(
+        {
+          name: "Removed Warning",
+          value: `ID: \`${removedWarn.id}\``,
+          inline: false,
+        },
+        { name: "Original User", value: removedWarn.username, inline: true },
+        {
+          name: "Originally Warned By",
+          value: removedWarn.warnedBy,
+          inline: true,
+        },
+        { name: "Removed By", value: interaction.user.username, inline: true },
+        { name: "Original Reason", value: removedWarn.reason, inline: false },
+        {
+          name: "Original Date",
+          value: `<t:${Math.floor(new Date(removedWarn.timestamp).getTime() / 1000)}:F>`,
+          inline: true,
+        },
+        {
+          name: "Original Channel",
+          value: `#${removedWarn.channelName}`,
+          inline: true,
+        },
+      )
+      .setTimestamp()
+      .setFooter({
+        text: "Warning has been permanently removed from the database",
+      });
+
+    await interaction.reply({
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral,
+    });
+  },
+};
+
+export const ClearUserWarns: Command = {
+  name: "clearuserwarns",
+  description: "Clear all warnings for a specific user (Admin only)",
+  options: [
+    {
+      name: "user",
+      type: 6, // USER
+      description: "The user to clear warnings for",
+      required: true,
+    },
+  ],
+  run: async (client: Client, interaction: ChatInputCommandInteraction) => {
+    initializeFiles();
+
+    // Check if user has Administrator permission
+    if (!interaction.memberPermissions?.has("Administrator")) {
+      await interaction.reply({
+        content:
+          "❌ You must be a Discord Administrator to clear user warnings.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const targetUser = interaction.options.getUser("user", true);
+    let warns = loadWarnData();
+
+    // Filter warnings for this user in this guild
+    const userWarns = warns.filter(
+      (warn) =>
+        warn.userId === targetUser.id && warn.guildId === interaction.guildId,
+    );
+
+    if (userWarns.length === 0) {
+      await interaction.reply({
+        content: `📋 No warnings found for ${targetUser.username} in this server.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Remove all warnings for this user in this guild
+    warns = warns.filter(
+      (warn) =>
+        !(
+          warn.userId === targetUser.id && warn.guildId === interaction.guildId
+        ),
+    );
+    saveWarnData(warns);
+
+    // Create confirmation embed
+    const embed = new EmbedBuilder()
+      .setTitle("🧹 User Warnings Cleared")
+      .setColor(0x00ff00)
+      .addFields(
+        { name: "User", value: `${targetUser.username}`, inline: true },
+        {
+          name: "Warnings Removed",
+          value: `${userWarns.length}`,
+          inline: true,
+        },
+        { name: "Cleared By", value: interaction.user.username, inline: true },
+      )
+      .setTimestamp()
+      .setFooter({
+        text: "All warnings for this user have been permanently removed",
+      });
+
+    await interaction.reply({
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral,
+    });
+  },
+};
+
+export const BulkRemoveWarns: Command = {
+  name: "bulkremovewarns",
+  description: "Remove multiple warnings by IDs (Admin only)",
+  options: [
+    {
+      name: "ids",
+      type: 3, // STRING
+      description: "Warning IDs separated by spaces or commas",
+      required: true,
+    },
+  ],
+  run: async (client: Client, interaction: ChatInputCommandInteraction) => {
+    initializeFiles();
+
+    // Check if user has Administrator permission
+    if (!interaction.memberPermissions?.has("Administrator")) {
+      await interaction.reply({
+        content:
+          "❌ You must be a Discord Administrator to bulk remove warnings.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const idsString = interaction.options.getString("ids", true);
+    const warnIds = idsString
+      .split(/[\s,]+/)
+      .filter((id) => id.trim().length > 0);
+
+    if (warnIds.length === 0) {
+      await interaction.reply({
+        content: "❌ Please provide at least one warning ID.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (warnIds.length > 20) {
+      await interaction.reply({
+        content: "❌ Maximum 20 warnings can be removed at once.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const warns = loadWarnData();
+    const removedWarns: WarnData[] = [];
+    const notFoundIds: string[] = [];
+
+    // Find and collect warnings to remove
+    warnIds.forEach((warnId) => {
+      const warnIndex = warns.findIndex(
+        (warn) => warn.id === warnId && warn.guildId === interaction.guildId,
+      );
+
+      if (warnIndex !== -1) {
+        removedWarns.push(warns[warnIndex]);
+      } else {
+        notFoundIds.push(warnId);
+      }
+    });
+
+    // Remove found warnings
+    const updatedWarns = warns.filter(
+      (warn) =>
+        !warnIds.includes(warn.id) || warn.guildId !== interaction.guildId,
+    );
+    saveWarnData(updatedWarns);
+
+    // Create response embed
+    const embed = new EmbedBuilder()
+      .setTitle("🗑️ Bulk Warning Removal")
+      .setColor(removedWarns.length > 0 ? 0x00ff00 : 0xff0000)
+      .addFields(
+        {
+          name: "Successfully Removed",
+          value: `${removedWarns.length}`,
+          inline: true,
+        },
+        { name: "Not Found", value: `${notFoundIds.length}`, inline: true },
+        { name: "Removed By", value: interaction.user.username, inline: true },
+      )
+      .setTimestamp();
+
+    if (removedWarns.length > 0) {
+      const removedList = removedWarns
+        .map((warn) => `• \`${warn.id}\` - ${warn.username}`)
+        .join("\n");
+      embed.addFields({
+        name: "Removed Warnings",
+        value:
+          removedList.length > 1024
+            ? removedList.substring(0, 1021) + "..."
+            : removedList,
+        inline: false,
+      });
+    }
+
+    if (notFoundIds.length > 0) {
+      const notFoundList = notFoundIds.map((id) => `• \`${id}\``).join("\n");
+      embed.addFields({
+        name: "Not Found IDs",
+        value:
+          notFoundList.length > 1024
+            ? notFoundList.substring(0, 1021) + "..."
+            : notFoundList,
+        inline: false,
+      });
+    }
+
+    await interaction.reply({
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral,
+    });
+  },
+};
+
+export const WarnStats: Command = {
+  name: "warnstats",
+  description: "View warning statistics for the server",
+  run: async (client: Client, interaction: ChatInputCommandInteraction) => {
+    initializeFiles();
+
+    // Check permissions
+    if (!canUserWarn(interaction)) {
+      await interaction.reply({
+        content: "❌ You don't have permission to view warning statistics.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const warns = loadWarnData().filter(
+      (warn) => warn.guildId === interaction.guildId,
+    );
+
+    if (warns.length === 0) {
+      await interaction.reply({
+        content: "📊 No warnings found in this server.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Calculate statistics
+    const totalWarns = warns.length;
+    const uniqueUsers = new Set(warns.map((warn) => warn.userId)).size;
+    const uniqueWarners = new Set(warns.map((warn) => warn.warnedById)).size;
+
+    // Most warned users
+    const userCounts = warns.reduce(
+      (acc, warn) => {
+        acc[warn.userId] = (acc[warn.userId] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const topUsers = Object.entries(userCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([userId, count]) => {
+        const warn = warns.find((w) => w.userId === userId);
+        return `• **${warn?.username || "Unknown"}**: ${count} warning${count > 1 ? "s" : ""}`;
+      });
+
+    // Most active warners
+    const warnerCounts = warns.reduce(
+      (acc, warn) => {
+        acc[warn.warnedById] = (acc[warn.warnedById] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const topWarners = Object.entries(warnerCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([warnerId, count]) => {
+        const warn = warns.find((w) => w.warnedById === warnerId);
+        return `• **${warn?.warnedBy || "Unknown"}**: ${count} warning${count > 1 ? "s" : ""} issued`;
+      });
+
+    // Recent activity (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const recentWarns = warns.filter(
+      (warn) => new Date(warn.timestamp) > sevenDaysAgo,
+    );
+
+    const embed = new EmbedBuilder()
+      .setTitle("📊 Warning Statistics")
+      .setColor(0x0099ff)
+      .addFields(
+        { name: "📈 Total Warnings", value: `${totalWarns}`, inline: true },
+        { name: "👥 Users Warned", value: `${uniqueUsers}`, inline: true },
+        { name: "🛡️ Staff Members", value: `${uniqueWarners}`, inline: true },
+        {
+          name: "📅 Last 7 Days",
+          value: `${recentWarns.length} warnings`,
+          inline: true,
+        },
+        {
+          name: "📊 Average per User",
+          value: `${(totalWarns / uniqueUsers).toFixed(1)}`,
+          inline: true,
+        },
+        { name: "\u200b", value: "\u200b", inline: true },
+      )
+      .setTimestamp();
+
+    if (topUsers.length > 0) {
+      embed.addFields({
+        name: "🥇 Most Warned Users",
+        value: topUsers.join("\n"),
+        inline: true,
+      });
+    }
+
+    if (topWarners.length > 0) {
+      embed.addFields({
+        name: "🛡️ Most Active Staff",
+        value: topWarners.join("\n"),
+        inline: true,
+      });
+    }
+
+    await interaction.reply({
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral,
+    });
+  },
+};
 
 export const WarnPermissions: Command = {
   name: "warnpermissions",
