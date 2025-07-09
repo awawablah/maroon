@@ -1,13 +1,9 @@
-# 🍷 Maroon Discord Bot
-
-> A delightful Discord bot built with TypeScript and love! 
+# 🖍️ Maroon Discord Bot
 
 ## ✨ Features
 
 - 🎯 Custom command system
 - 🔧 Modular architecture with handlers
-- 📝 TypeScript for type safety
-- 🎪 Interactive Discord slash commands
 - 🌟 Easy to extend and customize
 
 ## 🚀 Quick Start
@@ -59,7 +55,11 @@ maroon/
 
 ## 🎮 Commands
 
-*Add your bot commands here as you develop them!*
+```bash
+/findallapproved <page> || <user>
+/submit
+/removesubmission <index>
+```
 
 ## 🛠️ Development
 
@@ -78,12 +78,8 @@ maroon/
 
 This project is licensed under the ISC License.
 
-## 💖 Made with
+## Made with
 
 - [Discord.js](https://discord.js.org/) - The Discord API wrapper
 - [TypeScript](https://www.typescriptlang.org/) - For type safety
 - [dotenv](https://github.com/motdotla/dotenv) - Environment variable management
-
----
-
-*Happy coding! 🎉*
