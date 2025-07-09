@@ -20,6 +20,7 @@ import {
   Kick,
   ModerationLog,
   BanKickPermissions,
+  Unban,
 } from "./commands/moderation/warn";
 
 export const Commands: Command[] = [
@@ -33,7 +34,7 @@ export const Commands: Command[] = [
   Ping,
   Warn,
   WarnList,
-  WarnPermissions,
+  WarnPermissions,  
   RemoveWarn,
   ClearUserWarns,
   BulkRemoveWarns,
@@ -42,4 +43,5 @@ export const Commands: Command[] = [
   Kick,
   ModerationLog,
   BanKickPermissions,
+  Unban,
 ];

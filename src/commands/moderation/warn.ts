@@ -737,6 +737,45 @@ export const RemoveWarn: Command = {
     warns.splice(warnIndex, 1);
     saveWarnData(warns);
 
+    // Try to DM the user about warning removal
+    try {
+      const targetUser = await client.users.fetch(removedWarn.userId);
+      const dmEmbed = new EmbedBuilder()
+        .setTitle("✅ Warning Removed")
+        .setColor(0x00ff00)
+        .addFields(
+          {
+            name: "Removed by",
+            value: interaction.user.username,
+            inline: true,
+          },
+          {
+            name: "Server",
+            value: interaction.guild?.name || "Unknown",
+            inline: true,
+          },
+          { name: "Original Reason", value: removedWarn.reason, inline: false },
+          {
+            name: "Original Date",
+            value: `<t:${Math.floor(new Date(removedWarn.timestamp).getTime() / 1000)}:F>`,
+            inline: true,
+          },
+          {
+            name: "Removed Date",
+            value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+            inline: true,
+          },
+        )
+        .setTimestamp()
+        .setFooter({
+          text: "This warning has been removed from your record.",
+        });
+
+      await targetUser.send({ embeds: [dmEmbed] });
+    } catch (error) {
+      console.error("Failed to send DM to user about warning removal:", error);
+    }
+
     // Create removal embed
     const embed = new EmbedBuilder()
       .setTitle("🗑️ Warning Removed")
@@ -768,7 +807,7 @@ export const RemoveWarn: Command = {
       )
       .setTimestamp()
       .setFooter({
-        text: "Warning has been permanently removed from the database",
+        text: "Warning has been permanently removed from the database. User has been notified via DM.",
       });
 
     await interaction.reply({
@@ -828,6 +867,43 @@ export const ClearUserWarns: Command = {
     );
     saveWarnData(warns);
 
+    // Try to DM the user about warning clearing
+    try {
+      const dmEmbed = new EmbedBuilder()
+        .setTitle("🧹 All Warnings Cleared")
+        .setColor(0x00ff00)
+        .addFields(
+          {
+            name: "Cleared by",
+            value: interaction.user.username,
+            inline: true,
+          },
+          {
+            name: "Server",
+            value: interaction.guild?.name || "Unknown",
+            inline: true,
+          },
+          {
+            name: "Warnings Removed",
+            value: `${userWarns.length}`,
+            inline: true,
+          },
+          {
+            name: "Cleared Date",
+            value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+            inline: false,
+          },
+        )
+        .setTimestamp()
+        .setFooter({
+          text: "All your warnings have been cleared from your record.",
+        });
+
+      await targetUser.send({ embeds: [dmEmbed] });
+    } catch (error) {
+      console.error("Failed to send DM to user about warning clearing:", error);
+    }
+
     // Create confirmation embed
     const embed = new EmbedBuilder()
       .setTitle("🧹 User Warnings Cleared")
@@ -843,7 +919,7 @@ export const ClearUserWarns: Command = {
       )
       .setTimestamp()
       .setFooter({
-        text: "All warnings for this user have been permanently removed",
+        text: "All warnings for this user have been permanently removed. User has been notified via DM.",
       });
 
     await interaction.reply({
@@ -922,6 +998,57 @@ export const BulkRemoveWarns: Command = {
     );
     saveWarnData(updatedWarns);
 
+    // Try to DM affected users about warning removals
+    const notifiedUsers = new Set<string>();
+    for (const warn of removedWarns) {
+      if (!notifiedUsers.has(warn.userId)) {
+        try {
+          const targetUser = await client.users.fetch(warn.userId);
+          const userRemovedWarns = removedWarns.filter(
+            (w) => w.userId === warn.userId,
+          );
+
+          const dmEmbed = new EmbedBuilder()
+            .setTitle("🗑️ Warnings Removed")
+            .setColor(0x00ff00)
+            .addFields(
+              {
+                name: "Removed by",
+                value: interaction.user.username,
+                inline: true,
+              },
+              {
+                name: "Server",
+                value: interaction.guild?.name || "Unknown",
+                inline: true,
+              },
+              {
+                name: "Warnings Removed",
+                value: `${userRemovedWarns.length}`,
+                inline: true,
+              },
+              {
+                name: "Removed Date",
+                value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+                inline: false,
+              },
+            )
+            .setTimestamp()
+            .setFooter({
+              text: "These warnings have been removed from your record.",
+            });
+
+          await targetUser.send({ embeds: [dmEmbed] });
+          notifiedUsers.add(warn.userId);
+        } catch (error) {
+          console.error(
+            `Failed to send DM to user ${warn.userId} about warning removal:`,
+            error,
+          );
+        }
+      }
+    }
+
     // Create response embed
     const embed = new EmbedBuilder()
       .setTitle("🗑️ Bulk Warning Removal")
@@ -963,6 +1090,13 @@ export const BulkRemoveWarns: Command = {
       });
     }
 
+    embed.setFooter({
+      text:
+        removedWarns.length > 0
+          ? "Affected users have been notified via DM."
+          : "No warnings were removed.",
+    });
+
     await interaction.reply({
       embeds: [embed],
       flags: MessageFlags.Ephemeral,
@@ -983,7 +1117,7 @@ export const WarnLeaderboard: Command = {
     if (warns.length === 0) {
       await interaction.reply({
         content:
-          "📊 **Warning Leaderboard** 📊\n\n✅ No warnings found in this server - everyone's being good! 🎉",
+          "📊 **Warning Leaderboard** 📊\n\n✅ No warnings found in this server - everyone's being a good girl 😈! 🎉",
       });
       return;
     }
@@ -1745,6 +1879,165 @@ export const WarnPermissions: Command = {
       embeds: [embed],
       flags: MessageFlags.Ephemeral,
     });
+  },
+};
+
+export const Unban: Command = {
+  name: "unban",
+  description: "Unban a user from the server",
+  options: [
+    {
+      name: "user",
+      type: 3, // STRING
+      description: "The user ID or username to unban",
+      required: true,
+    },
+    {
+      name: "reason",
+      type: 3, // STRING
+      description: "The reason for the unban",
+      required: false,
+    },
+  ],
+  run: async (client: Client, interaction: ChatInputCommandInteraction) => {
+    // Check permissions
+    if (!canUserBanKick(interaction)) {
+      await interaction.reply({
+        content: "❌ You don't have permission to use the unban command.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const userInput = interaction.options.getString("user", true);
+    const reason =
+      interaction.options.getString("reason") || "No reason provided";
+    const guild = interaction.guild;
+
+    if (!guild) {
+      await interaction.reply({
+        content: "❌ This command can only be used in a server.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    try {
+      // Try to find the user by ID first, then by username
+      let targetUser: User | null = null;
+
+      // Check if it's a user ID
+      if (/^\d+$/.test(userInput)) {
+        try {
+          targetUser = await client.users.fetch(userInput);
+        } catch (error) {
+          // User not found by ID
+        }
+      }
+
+      // If not found by ID, try to find in ban list
+      if (!targetUser) {
+        const bans = await guild.bans.fetch();
+        const bannedUser = bans.find(
+          (ban) =>
+            ban.user.id === userInput ||
+            ban.user.username.toLowerCase() === userInput.toLowerCase() ||
+            ban.user.tag.toLowerCase() === userInput.toLowerCase(),
+        );
+
+        if (bannedUser) {
+          targetUser = bannedUser.user;
+        }
+      }
+
+      if (!targetUser) {
+        await interaction.reply({
+          content: "❌ User not found or not banned.",
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      // Check if user is actually banned
+      const isBanned = await guild.bans.fetch(targetUser.id).catch(() => null);
+      if (!isBanned) {
+        await interaction.reply({
+          content: "❌ This user is not banned.",
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      // Unban the user
+      await guild.members.unban(
+        targetUser,
+        `${reason} | Unbanned by: ${interaction.user.username}`,
+      );
+
+      // Try to DM the user about being unbanned
+      try {
+        const dmEmbed = new EmbedBuilder()
+          .setTitle("✅ You Have Been Unbanned")
+          .setColor(0x00ff00)
+          .addFields(
+            {
+              name: "Unbanned by",
+              value: interaction.user.username,
+              inline: true,
+            },
+            { name: "Server", value: guild.name, inline: true },
+            { name: "Reason", value: reason, inline: false },
+            {
+              name: "Time",
+              value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+              inline: false,
+            },
+          )
+          .setTimestamp()
+          .setFooter({
+            text: "You can now rejoin the server if you have an invite link.",
+          });
+
+        await targetUser.send({ embeds: [dmEmbed] });
+      } catch (error) {
+        console.log("Could not send DM to unbanned user:", error);
+      }
+
+      // Create public embed
+      const publicEmbed = new EmbedBuilder()
+        .setTitle("✅ User Unbanned")
+        .setColor(0x00ff00)
+        .addFields(
+          {
+            name: "User",
+            value: `${targetUser.username} (${targetUser.id})`,
+            inline: true,
+          },
+          {
+            name: "Unbanned by",
+            value: `<@${interaction.user.id}>`,
+            inline: true,
+          },
+          { name: "Reason", value: reason, inline: false },
+          {
+            name: "Time",
+            value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+            inline: true,
+          },
+        )
+        .setTimestamp();
+
+      await interaction.reply({
+        embeds: [publicEmbed],
+      });
+    } catch (error) {
+      console.error("Error unbanning user:", error);
+      await interaction.reply({
+        content:
+          "❌ Failed to unban user. Please check the user ID/username and try again.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
   },
 };
 

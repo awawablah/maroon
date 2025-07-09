@@ -69,6 +69,7 @@ maroon/
 /warnleaderboard
 /ban <user> <reason> [deletedays]
 /kick <user> <reason>
+/unban <user> [reason]
 /modlog [user] [type]
 /bankickpermissions
 ..!modifywarn <@role> -> enable/disable
@@ -115,12 +116,14 @@ maroon/
 #### `/removewarn <id>`
 - Removes a single warning by its ID
 - Shows confirmation with details of the removed warning
+- **Automatically DMs the user** about the warning removal
 - Requires warn permissions to use
 - Example: `/removewarn warn_1234567890_abc123`
 
 #### `/clearuserwarns <user>`
 - **Admin Only** - Clears all warnings for a specific user
 - Shows count of warnings removed
+- **Automatically DMs the user** about all warnings being cleared
 - Requires Discord Administrator permission
 - Example: `/clearuserwarns @JohnDoe`
 
@@ -128,6 +131,7 @@ maroon/
 - **Admin Only** - Removes multiple warnings at once (max 20)
 - IDs can be separated by spaces or commas
 - Shows summary of successfully removed and not found warnings
+- **Automatically DMs affected users** about their warning removals
 - Requires Discord Administrator permission
 - Example: `/bulkremovewarns warn_123_abc warn_456_def warn_789_ghi`
 
@@ -182,6 +186,14 @@ maroon/
 - Includes permission checks (can't kick higher roles or admins)
 - Example: `/kick @JohnDoe Inappropriate behavior`
 
+#### `/unban <user> [reason]`
+- Unbans a user from the server
+- User can be specified by ID, username, or tag
+- Sends public embed in the channel where command was used
+- **Automatically DMs the user** about being unbanned
+- Requires ban/kick permissions to use
+- Example: `/unban 123456789012345678 Appeal approved`
+
 #### `/bankickpermissions`
 - Shows which roles currently have ban/kick permissions
 - Admin-only command for checking current configuration
@@ -207,6 +219,13 @@ maroon/
 - Warning IDs are automatically generated for easy reference
 - Ban and kick actions are logged in Discord's audit log and the moderation log
 
+### DM Notification System
+- **Warning Removals**: Users are automatically notified when their warnings are removed
+- **Warning Clearing**: Users are notified when all their warnings are cleared
+- **Ban/Kick Actions**: Users receive DMs before being banned/kicked with full details
+- **Unban Actions**: Users are notified when they are unbanned from the server
+- **Fallback Handling**: If DMs fail (user has DMs disabled), commands still execute successfully
+
 ### Pagination Features
 - All paginated commands use arrow buttons (◀️ ▶️) for easy navigation
 - Buttons automatically disable when at first/last page
@@ -216,7 +235,7 @@ maroon/
 
 ### Permission Requirements
 - **Warn Permissions**: Required for `/warn`, `/warnlist`, `/removewarn`, `/modlog`, `/findallapproved`, `/listsubmissions`
-- **Ban/Kick Permissions**: Required for `/ban`, `/kick` (separate from warn permissions)
+- **Ban/Kick Permissions**: Required for `/ban`, `/kick`, `/unban` (separate from warn permissions)
 - **Administrator Only**: Required for `/clearuserwarns`, `/bulkremovewarns`, `/warnpermissions`, `/bankickpermissions`, `..!modifywarn`, `..!modifybankick`
 - **Public Access**: `/warnleaderboard` is available to all users
 - **Role Hierarchy**: Cannot moderate users with equal or higher roles
