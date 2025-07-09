@@ -59,6 +59,46 @@ maroon/
 /findallapproved <page> || <user>
 /submit
 /removesubmission <index>
+/warn <user> <reason>
+/warnlist [user]
+/warnpermissions
+..!modifywarn <@role> -> enable/disable
+```
+
+## Warn System Commands
+
+### `/warn <user> <reason>`
+- Warns a user for a specific reason
+- Sends a public embed in the channel where the command was used
+- DMs the warned user with details including who warned them, when, and in which channel
+- Requires specific role permissions or Discord Administrator
+- Example: `/warn @JohnDoe Spamming in general chat`
+
+### `/warnlist [user]`
+- Lists all warnings with pagination (5 per page)
+- Optional user parameter to filter warnings for a specific user
+- Uses arrow buttons for navigation between pages
+- Shows warning details including reason, who issued it, when, and warning ID
+- Requires warn permissions to use
+
+### `/warnpermissions`
+- Shows which roles currently have warn permissions
+- Admin-only command for checking current configuration
+- Displays role names and IDs
+
+### `..!modifywarn <@role> -> enable/disable`
+- Text-based command (not slash command) that must use the `..!` prefix
+- Only Discord Administrators can use this command
+- Enables or disables warn permissions for a specific role
+- Syntax examples:
+  - `..!modifywarn @Moderator -> enable`
+  - `..!modifywarn @Helper -> disable`
+
+### Warning Data Storage
+- All warnings are stored in `warn_data.json` in the bot's directory
+- Warnings include: user info, reason, timestamp, channel, who issued it
+- Role permissions are stored in `warn_config.json`
+- Data is persistent across bot restarts
 ```
 
 ## 🛠️ Development
