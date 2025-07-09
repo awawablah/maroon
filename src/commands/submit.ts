@@ -17,7 +17,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { config } from "../config";
 
-const ADMIN_CHANNEL_ID = "1391277749695549583";
+const ADMIN_CHANNEL_ID = "1392542994376429631";
 const APPROVED_ROLE_ID = config.approvedSubmissionRoleId;
 
 // Theme keywords for tagging (TikTok/brainrot humor)
