@@ -13,6 +13,7 @@ import {
   Message,
 } from "discord.js";
 import { Command } from "../../Command";
+import { config } from "../../config";
 import fs from "fs";
 import path from "path";
 
@@ -229,7 +230,8 @@ export const Warn: Command = {
     saveWarnData(warns);
 
     // Log the moderation action
-    logModerationAction(
+    await logModerationAction(
+      client,
       "warn",
       targetUser.id,
       targetUser.username,
@@ -770,6 +772,17 @@ export const RemoveWarn: Command = {
         .setFooter({
           text: "This warning has been removed from your record.",
         });
+      logModerationAction(
+        client,
+        "warn_remove",
+        targetUser.id,
+        targetUser.username,
+        interaction.user.id,
+        removedWarn.reason,
+        interaction.user.username,
+        interaction.guildId!,
+        `Original warning by ${removedWarn.warnedBy} removed by ${interaction.user.username}`,
+      );
 
       await targetUser.send({ embeds: [dmEmbed] });
     } catch (error) {
@@ -1311,7 +1324,8 @@ export const Ban: Command = {
       });
 
       // Log the moderation action
-      logModerationAction(
+      await logModerationAction(
+        client,
         "ban",
         targetUser.id,
         targetUser.username,
@@ -1491,7 +1505,8 @@ export const Kick: Command = {
       );
 
       // Log the moderation action
-      logModerationAction(
+      await logModerationAction(
+        client,
         "kick",
         targetUser.id,
         targetUser.username,
@@ -1539,7 +1554,7 @@ export const Kick: Command = {
 
 interface ModerationLogEntry {
   id: string;
-  type: "warn" | "ban" | "kick";
+  type: "warn" | "ban" | "kick" | "warn_remove";
   userId: string;
   username: string;
   moderatorId: string;
@@ -1578,18 +1593,19 @@ function saveModLog(data: ModerationLogEntry[]): void {
   }
 }
 
-function logModerationAction(
-  type: "warn" | "ban" | "kick",
+async function logModerationAction(
+  client: Client,
+  type: "warn" | "ban" | "kick" | "warn_remove",
   userId: string,
   username: string,
   moderatorId: string,
   moderatorUsername: string,
   reason: string,
-  channelId: string,
-  channelName: string,
-  guildId: string,
+  channelId: string = "",
+  channelName: string = "",
+  guildId: string = "",
   additionalInfo?: any,
-): void {
+): Promise<void> {
   initializeModLog();
 
   const entry: ModerationLogEntry = {
@@ -1610,6 +1626,72 @@ function logModerationAction(
   const log = loadModLog();
   log.push(entry);
   saveModLog(log);
+
+  // Send to moderation log channel if configured
+  if (config.moderationLogChannelId) {
+    try {
+      const logChannel = (await client.channels.fetch(
+        config.moderationLogChannelId,
+      )) as TextChannel;
+      if (logChannel) {
+        const typeEmojis = {
+          warn_remove: "🗑️",
+          warn: "⚠️",
+          ban: "🔨",
+          kick: "👢",
+        };
+
+        const typeColors = {
+          warn_remove: 0x00ff00,
+          warn: 0xffaa00,
+          ban: 0xff0000,
+          kick: 0xff9900,
+        };
+
+        const embed = new EmbedBuilder()
+          .setTitle(
+            `${typeEmojis[type]} Moderation Action: ${type.toUpperCase()}`,
+          )
+          .setColor(typeColors[type])
+          .addFields(
+            { name: "User", value: `<@${userId}> (${username})`, inline: true },
+            {
+              name: "Moderator",
+              value: `<@${moderatorId}> (${moderatorUsername})`,
+              inline: true,
+            },
+            {
+              name: "Channel",
+              value: `<#${channelId}> (${channelName})`,
+              inline: true,
+            },
+            { name: "Reason", value: reason, inline: false },
+            {
+              name: "Time",
+              value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+              inline: true,
+            },
+            { name: "Action ID", value: entry.id, inline: true },
+          )
+          .setTimestamp();
+
+        // Add additional info if present
+        if (additionalInfo) {
+          if (type === "ban" && additionalInfo.deleteDays !== undefined) {
+            embed.addFields({
+              name: "Messages Deleted",
+              value: `${additionalInfo.deleteDays} day${additionalInfo.deleteDays !== 1 ? "s" : ""}`,
+              inline: true,
+            });
+          }
+        }
+
+        await logChannel.send({ embeds: [embed] });
+      }
+    } catch (error) {
+      console.error("Failed to send moderation action to log channel:", error);
+    }
+  }
 }
 
 export const ModerationLog: Command = {

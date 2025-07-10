@@ -30,9 +30,21 @@
    Create a `.env` file in the root directory:
    ```env
    DISCORD_TOKEN=your_bot_token_here
+   DISCORD_CLIENT_ID=your_client_id_here
    ```
 
-4. **Build and run**
+4. **Configure the bot**
+   Edit `src/config.json` to customize bot settings:
+   ```json
+   {
+     "moderationLogChannelId": "YOUR_MODERATION_LOG_CHANNEL_ID",
+     "ignoredChannels": ["channel_id_1", "channel_id_2"],
+     "wwydSettings": { ... },
+     "approvedSubmissionRoleId": "YOUR_APPROVED_SUBMISSION_ROLE_ID"
+   }
+   ```
+
+5. **Build and run**
    ```bash
    npm run build
    npm start
@@ -219,6 +231,19 @@ maroon/
 - Warning IDs are automatically generated for easy reference
 - Ban and kick actions are logged in Discord's audit log and the moderation log
 
+### Moderation Log Channel
+- **Automatic Logging**: All moderation actions (warns, bans, kicks) are automatically sent to a designated Discord channel
+- **Configuration**: Set the `moderationLogChannelId` in `src/config.json` to your desired channel ID
+- **Rich Embeds**: Each action is displayed as a detailed embed with:
+  - Action type with appropriate emoji (⚠️ for warns, 🔨 for bans, 👢 for kicks)
+  - User and moderator information
+  - Reason and timestamp
+  - Channel where action occurred
+  - Unique action ID for reference
+- **Additional Info**: Ban actions include message deletion timeframe
+- **Fallback**: If the channel is not found or bot lacks permissions, actions still execute but only log to JSON file
+- **Setup**: Right-click on your desired channel → Copy ID → paste into config file
+
 ### DM Notification System
 - **Warning Removals**: Users are automatically notified when their warnings are removed
 - **Warning Clearing**: Users are notified when all their warnings are cleared
@@ -241,6 +266,20 @@ maroon/
 - **Role Hierarchy**: Cannot moderate users with equal or higher roles
 - **Admin Protection**: Cannot moderate Discord Administrators
 ```
+
+## ⚙️ Configuration
+
+The bot uses `src/config.json` for its configuration. Here are the available options:
+
+- **`moderationLogChannelId`**: Discord channel ID where all moderation actions will be logged
+- **`ignoredChannels`**: Array of channel IDs where the bot will ignore certain features
+- **`wwydSettings`**: Configuration for the "What Would You Do" feature
+- **`approvedSubmissionRoleId`**: Role ID for approved submissions
+
+To get a Discord channel ID:
+1. Enable Developer Mode in Discord (Settings → Advanced → Developer Mode)
+2. Right-click on the channel → Copy ID
+3. Paste the ID into the config file
 
 ## 🛠️ Development
 
